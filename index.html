@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Корпоративный Мессенджер</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        #auth-screen { display: flex; }
+        #auth-screen.is-hidden { display: none !important; }
+        #app-screen { display: flex; flex-direction: column; }
+        #app-screen.is-hidden { display: none !important; }
+        #chat-window { display: flex; flex-direction: column; }
+        #chat-window.is-mobile-hidden { display: none !important; }
+        #sidebar.is-mobile-hidden { display: none !important; }
+        @media (min-width: 768px) {
+            #chat-window.is-mobile-hidden { display: flex !important; }
+            #sidebar.is-mobile-hidden { display: flex !important; }
+        }
+        @supports (padding: env(safe-area-inset-bottom)) { .safe-bottom { padding-bottom: env(safe-area-inset-bottom); } }
+        #messages-container::-webkit-scrollbar { width: 6px; }
+        #messages-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        [data-theme="dark"] #messages-container::-webkit-scrollbar-thumb { background: #475569; }
+        .typing-dots span { animation: typing-bounce 1.2s infinite ease-in-out; display: inline-block; }
+        .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes typing-bounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-3px); opacity: 1; }
+        }
+        .msg-sender { color: #64748b; }
+        [data-theme="dark"] .msg-sender { color: #cbd5e1; }
+        .msg-bubble-own .msg-meta { color: rgba(255,255,255,0.75); }
+        .msg-bubble-other .msg-meta { color: #94a3b8; }
+        .system-msg-light { background: #e2e8f0; color: #475569; }
+        .system-msg-dark { background: #334155; color: #cbd5e1; }
+        #emoji-picker, #settings-modal, #group-modal, #members-modal, #add-member-panel { display: none; }
+        #emoji-picker.is-open { display: block; }
+        #settings-modal.is-open, #group-modal.is-open, #members-modal.is-open { display: flex; }
+        #add-member-panel.is-open { display: block; }
+        #lightbox.is-open { display: flex; }
+        #lightbox { display: none; }
+        .img-thumb { cursor: pointer; transition: opacity 0.2s, transform 0.2s; }
+        .img-thumb:hover { opacity: 0.92; transform: scale(1.01); }
+        #avatar-upload-zone { cursor: pointer; }
+    </style>
+</head>
+<body class="h-[100dvh] overflow-hidden font-sans antialiased">
+
+    <!-- Авторизация -->
+    <div id="auth-screen" class="fixed inset-0 z-50 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 items-center justify-center px-4">
+        <div class="w-full max-w-md">
+            <div class="text-center mb-8">
+                <div class="bg-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg shadow-blue-600/40 ring-1 ring-white/10">
+                    <span class="material-icons text-white text-3xl">forum</span>
+                </div>
+                <h1 class="text-2xl font-bold text-white tracking-tight">Корпоративный чат</h1>
+                <p class="text-slate-400 mt-2 text-sm">Войдите по никнейму — пароль не требуется</p>
+            </div>
+            <form id="auth-form" class="bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-2xl">
+                <label for="username-input" class="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">Никнейм</label>
+                <input type="text" id="username-input" required minlength="2" maxlength="32" placeholder="Антон Иванов"
+                    class="w-full px-4 py-3 bg-slate-900/80 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500 mb-4">
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-all shadow-lg active:scale-[0.98]">Войти</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Приложение -->
+    <div id="app-screen" class="is-hidden h-[100dvh] w-full" data-theme="light">
+        <div class="flex h-full w-full">
+
+            <div id="sidebar" class="w-full md:w-[340px] lg:w-[380px] shrink-0 flex flex-col h-full z-10 border-r transition-colors duration-300 bg-white border-slate-200">
+                <div id="sidebar-header" class="p-4 border-b flex items-center justify-between shrink-0 bg-slate-50 border-slate-100">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div id="user-avatar" class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-md shrink-0 overflow-hidden">U</div>
+                        <div class="min-w-0">
+                            <h3 id="current-user-display" class="font-semibold text-sm truncate text-slate-800">Пользователь</h3>
+                            <span class="text-xs text-emerald-500 flex items-center gap-1"><span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>в сети</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center shrink-0">
+                        <button type="button" id="settings-btn" title="Настройки" class="theme-icon-btn p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100"><span class="material-icons text-xl">settings</span></button>
+                        <button type="button" id="logout-btn" title="Выход" class="theme-icon-btn p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-slate-100"><span class="material-icons text-xl">logout</span></button>
+                    </div>
+                </div>
+
+                <div class="px-3 py-3 shrink-0">
+                    <div class="relative">
+                        <span id="search-icon" class="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-lg pointer-events-none text-slate-400">search</span>
+                        <input type="text" id="search-input" placeholder="Поиск чатов или сотрудников..." class="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-slate-100 border border-slate-200 text-slate-800 placeholder-slate-400">
+                    </div>
+                </div>
+
+                <div id="chat-tabs" class="flex gap-1 px-3 pb-2 shrink-0">
+                    <button type="button" data-tab="all" class="tab-btn flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold ring-2 ring-blue-500 bg-blue-50 text-blue-600">Все</button>
+                    <button type="button" data-tab="personal" class="tab-btn flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600">Личные</button>
+                    <button type="button" data-tab="groups" class="tab-btn flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600">Группы</button>
+                </div>
+
+                <div class="flex items-center justify-between px-3 pb-1 shrink-0">
+                    <p id="chats-label" class="text-[10px] font-semibold uppercase tracking-widest px-2 text-slate-400">Чаты</p>
+                    <button type="button" id="create-group-btn" title="Создать беседу" class="w-7 h-7 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-md active:scale-95"><span class="material-icons text-base">add</span></button>
+                </div>
+
+                <div id="chat-list" class="flex-1 overflow-y-auto px-2 space-y-1 pb-2"></div>
+
+                <div id="sidebar-footer" class="p-3 border-t shrink-0 bg-slate-50 border-slate-100">
+                    <p id="theme-label" class="text-[10px] font-semibold uppercase tracking-widest px-1 mb-2 text-slate-400">Оформление</p>
+                    <div class="flex gap-2">
+                        <button type="button" id="theme-light-btn" class="flex-1 py-2 px-3 rounded-xl text-xs font-semibold ring-2 ring-blue-500 bg-slate-100 text-slate-600">Светлая тема</button>
+                        <button type="button" id="theme-dark-btn" class="flex-1 py-2 px-3 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600">Темная тема</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="chat-window" class="is-mobile-hidden flex-col flex-1 min-w-0 h-full relative">
+                <div id="chat-header" class="px-4 py-3 border-b flex items-center gap-2 shadow-sm shrink-0 bg-white border-slate-200">
+                    <button type="button" id="back-btn" class="md:hidden p-2 -ml-1 rounded-lg shrink-0 text-slate-400 hover:text-blue-600 hover:bg-slate-100"><span class="material-icons">arrow_back</span></button>
+                    <div id="chat-header-icon" class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm shrink-0"><span class="material-icons">groups</span></div>
+                    <div class="min-w-0 flex-1">
+                        <h3 id="chat-title" class="font-bold text-sm truncate text-slate-800">Общий канал</h3>
+                        <p id="chat-subtitle" class="text-xs truncate text-slate-400">Все сотрудники</p>
+                    </div>
+                    <p id="typing-indicator" class="hidden text-[11px] text-blue-500 font-medium shrink-0 max-w-[35%] text-right leading-tight">
+                        <span class="typing-dots"><span>●</span><span>●</span><span>●</span></span><span id="typing-text"></span>
+                    </p>
+                    <button type="button" id="members-btn" title="Участники беседы" class="hidden shrink-0 p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors">
+                        <span class="material-icons">group</span>
+                    </button>
+                </div>
+
+                <div id="messages-container" class="flex-1 overflow-y-auto px-4 py-4 space-y-3 scroll-smooth bg-slate-100"></div>
+
+                <div id="input-panel" class="p-3 md:p-4 border-t shrink-0 safe-bottom relative bg-white border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
+                    <div id="emoji-picker" class="absolute bottom-full left-3 mb-2 z-[60] rounded-2xl shadow-2xl border p-3 w-[min(320px,calc(100vw-2rem))] bg-white border-slate-200">
+                        <p id="emoji-label" class="text-[10px] font-semibold uppercase tracking-wider mb-2 px-1 text-slate-400">Эмодзи</p>
+                        <div id="emoji-grid" class="grid grid-cols-8 gap-1 max-h-40 overflow-y-auto"></div>
+                    </div>
+                    <form id="message-form" class="flex items-end gap-1.5">
+                        <button type="button" id="emoji-btn" class="p-2.5 rounded-xl shrink-0 text-slate-400 hover:text-blue-600 hover:bg-slate-100"><span class="material-icons text-xl">sentiment_satisfied_alt</span></button>
+                        <button type="button" id="attach-btn" class="p-2.5 rounded-xl shrink-0 text-slate-400 hover:text-blue-600 hover:bg-slate-100"><span class="material-icons text-xl">attach_file</span></button>
+                        <input type="file" id="file-input" class="hidden" accept="image/*,*/*">
+                        <input type="text" id="message-input" autocomplete="off" maxlength="2000" placeholder="Напишите сообщение..." class="flex-1 px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 border border-slate-200 text-slate-800 min-w-0">
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl shadow-md active:scale-95 shrink-0"><span class="material-icons text-xl">send</span></button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Настройки -->
+    <div id="settings-modal" class="fixed inset-0 z-[100] items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
+        <div id="settings-modal-box" class="w-full max-w-md rounded-2xl shadow-2xl border overflow-hidden bg-white border-slate-200">
+            <div id="settings-modal-header" class="px-6 py-4 border-b flex items-center justify-between bg-slate-50 border-slate-100">
+                <h2 id="settings-title" class="text-lg font-bold text-slate-800">Настройки профиля</h2>
+                <button type="button" id="modal-close-x" class="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100"><span class="material-icons">close</span></button>
+            </div>
+            <div class="p-6 space-y-5">
+                <div class="flex justify-center">
+                    <div id="settings-avatar-preview" class="w-20 h-20 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg overflow-hidden">U</div>
+                </div>
+                <div>
+                    <label for="settings-name" class="lbl-muted block text-xs font-medium mb-1.5 uppercase tracking-wider text-slate-400">Имя / Никнейм</label>
+                    <input type="text" id="settings-name" maxlength="32" class="fld-input w-full px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 border border-slate-200 text-slate-800">
+                </div>
+                <div>
+                    <label for="settings-avatar-url" class="lbl-muted block text-xs font-medium mb-1.5 uppercase tracking-wider text-slate-400">Ссылка на фото</label>
+                    <input type="url" id="settings-avatar-url" placeholder="https://..." class="fld-input w-full px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 border border-slate-200 text-slate-800">
+                </div>
+                <div>
+                    <input type="file" id="settings-avatar-file" accept="image/*" class="hidden">
+                    <label id="avatar-upload-zone" for="settings-avatar-file"
+                        class="flex items-center justify-center gap-2 w-full py-4 px-4 rounded-xl border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50/50 transition-all text-sm font-medium text-slate-600 hover:text-blue-600">
+                        <span class="material-icons text-xl">cloud_upload</span>
+                        <span>Или загрузить файл с компьютера</span>
+                    </label>
+                </div>
+            </div>
+            <div id="settings-modal-footer" class="px-6 py-4 border-t flex gap-3 bg-slate-50 border-slate-100">
+                <button type="button" id="modal-close-btn" class="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">Закрыть</button>
+                <button type="button" id="modal-save-btn" class="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Создание группы -->
+    <div id="group-modal" class="fixed inset-0 z-[100] items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
+        <div id="group-modal-box" class="w-full max-w-sm rounded-2xl shadow-2xl border overflow-hidden bg-white border-slate-200">
+            <div id="group-modal-header" class="px-6 py-4 border-b flex items-center justify-between bg-slate-50 border-slate-100">
+                <h2 id="group-modal-title" class="text-lg font-bold text-slate-800">Новая беседа</h2>
+                <button type="button" id="group-modal-close-x" class="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100"><span class="material-icons">close</span></button>
+            </div>
+            <form id="group-form" class="p-6 space-y-4">
+                <div>
+                    <label for="group-name-input" class="lbl-muted block text-xs font-medium mb-1.5 uppercase tracking-wider text-slate-400">Название группы</label>
+                    <input type="text" id="group-name-input" required maxlength="48" placeholder="Например: Проект Альфа" class="fld-input w-full px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 border border-slate-200 text-slate-800">
+                </div>
+                <button type="submit" class="w-full py-3 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-md">Создать беседу</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Участники -->
+    <div id="members-modal" class="fixed inset-0 z-[105] items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
+        <div id="members-modal-box" class="w-full max-w-md rounded-2xl shadow-2xl border overflow-hidden max-h-[85vh] flex flex-col bg-white border-slate-200">
+            <div id="members-modal-header" class="px-6 py-4 border-b flex items-center justify-between shrink-0 bg-slate-50 border-slate-100">
+                <h2 id="members-modal-title" class="text-lg font-bold text-slate-800">Участники беседы</h2>
+                <button type="button" id="members-modal-close" class="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100"><span class="material-icons">close</span></button>
+            </div>
+            <div class="p-4 shrink-0">
+                <button type="button" id="toggle-add-member" class="w-full py-2.5 px-4 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center gap-1 transition-all">
+                    <span class="material-icons text-lg">person_add</span> Добавить участника
+                </button>
+                <div id="add-member-panel" class="mt-3 rounded-xl border p-2 space-y-1 bg-slate-50 border-slate-200"></div>
+            </div>
+            <div id="members-list" class="flex-1 overflow-y-auto px-4 pb-4 space-y-2"></div>
+        </div>
+    </div>
+
+    <!-- Lightbox -->
+    <div id="lightbox" class="fixed inset-0 z-[110] items-center justify-center bg-black/90 backdrop-blur-sm px-4">
+        <button type="button" id="lightbox-close" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center z-10"><span class="material-icons text-2xl">close</span></button>
+        <img id="lightbox-img" src="" alt="Вложение" class="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl">
+    </div>
+
+    <script>
+        const SUPABASE_URL = "";
+        const SUPABASE_ANON_KEY = "";
+
+        const isProdMode = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL.trim() !== "" && SUPABASE_ANON_KEY.trim() !== "");
+        let supabaseClient = null;
+        if (isProdMode) supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const BASE_CHATS = [
+            { id: 'general', name: 'Общий канал', subtitle: 'Все сотрудники', icon: 'groups', color: 'bg-blue-600', searchable: 'общий канал сотрудники', type: 'group', functional: true },
+            { id: 'ivan', name: 'Иван (Методология)', subtitle: 'был(а) недавно', icon: 'person', color: 'bg-indigo-500', searchable: 'иван методология', type: 'personal', functional: false, unread: 0 },
+            { id: 'elena', name: 'Елена (Бухгалтерия)', subtitle: 'в сети', icon: 'person', color: 'bg-rose-500', searchable: 'елена бухгалтерия', type: 'personal', functional: false, unread: 1 },
+            { id: 'bot', name: 'Бот-помощник', subtitle: 'автоответчик', icon: 'smart_toy', color: 'bg-emerald-600', searchable: 'бот помощник', type: 'personal', functional: false, unread: 3 },
+        ];
+
+        const COLLEAGUE_DIRECTORY = [
+            { id: 'dir-ivan', name: 'Иван (Методология)', color: 'bg-indigo-500', icon: 'person' },
+            { id: 'dir-elena', name: 'Елена (Бухгалтерия)', color: 'bg-rose-500', icon: 'person' },
+            { id: 'dir-bot', name: 'Бот-помощник', color: 'bg-emerald-600', icon: 'smart_toy' },
+        ];
+
+        const DEMO_REPLIES = [
+            { sender: 'Иван (Методология)', text: 'О, привет! Тестируешь новый мессенджер? Слушай, выглядит очень шустро!' },
+            { sender: 'Елена (Бухгалтерия)', text: 'Всем привет! Подскажите, а где найти регламент по новым модулям?' },
+            { sender: 'Иван (Методология)', text: 'Проверил с телефона — верстка топ, стрелочка назад работает идеально.' },
+            { sender: 'Елена (Бухгалтерия)', text: 'Отлично! Можно уже показывать руководству на демо 👍' },
+            { sender: 'Бот-помощник', text: 'Напоминаю: сегодня в 15:00 общий созвон по итогам квартала.' },
+            { sender: 'Иван (Методология)', text: 'Кстати, тёмная тема в настройках — огонь для вечерней работы.' },
+        ];
+
+        const EMOJIS = ['😀','😂','😊','😍','🤔','👍','👏','🙌','🔥','💡','✅','❤️','🎉','📎','📌','💼','☕','🚀','⭐','💬','🤝','📊','📝','🎯','😎','🙏','💪','👋','😉','🤖','📱','💻'];
+
+        const THEME = {
+            light: {
+                sidebar: 'bg-white border-slate-200', sidebarHeader: 'bg-slate-50 border-slate-100', sidebarFooter: 'bg-slate-50 border-slate-100',
+                chatHeader: 'bg-white border-slate-200', chatBg: 'bg-slate-100', inputPanel: 'bg-white border-slate-200',
+                input: 'bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400',
+                search: 'bg-slate-100 border border-slate-200 text-slate-800 placeholder-slate-400', searchIcon: 'text-slate-400',
+                textPrimary: 'text-slate-800', textMuted: 'text-slate-400',
+                iconBtn: 'text-slate-400 hover:text-blue-600 hover:bg-slate-100', toggleBtn: 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                tabActive: 'ring-2 ring-blue-500 bg-blue-50 text-blue-600', tabInactive: 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                emojiPanel: 'bg-white border-slate-200', modal: 'bg-white border-slate-200', modalHeader: 'bg-slate-50 border-slate-100',
+                chatItem: 'hover:bg-slate-50', chatItemActive: 'bg-blue-50 ring-1 ring-blue-100',
+                bubbleOther: 'bg-white text-slate-800 border border-slate-100',
+                memberRow: 'bg-slate-50 border-slate-200', select: 'bg-white border-slate-200 text-slate-800',
+                uploadZone: 'border-slate-300 hover:border-blue-500 hover:bg-blue-50/50 text-slate-600 hover:text-blue-600',
+                addPanel: 'bg-slate-50 border-slate-200',
+            },
+            dark: {
+                sidebar: 'bg-slate-900 border-slate-700', sidebarHeader: 'bg-slate-800/80 border-slate-700', sidebarFooter: 'bg-slate-800/80 border-slate-700',
+                chatHeader: 'bg-slate-800 border-slate-700', chatBg: 'bg-slate-900', inputPanel: 'bg-slate-800 border-slate-700',
+                input: 'bg-slate-900 border border-slate-600 text-white placeholder-slate-500',
+                search: 'bg-slate-800 border border-slate-600 text-white placeholder-slate-500', searchIcon: 'text-slate-500',
+                textPrimary: 'text-slate-100', textMuted: 'text-slate-400',
+                iconBtn: 'text-slate-400 hover:text-blue-400 hover:bg-slate-700', toggleBtn: 'bg-slate-700 text-slate-300 hover:bg-slate-600',
+                tabActive: 'ring-2 ring-blue-500 bg-slate-800 text-blue-400', tabInactive: 'bg-slate-800 text-slate-400 hover:bg-slate-700',
+                emojiPanel: 'bg-slate-800 border-slate-600', modal: 'bg-slate-800 border-slate-600', modalHeader: 'bg-slate-900/80 border-slate-700',
+                chatItem: 'hover:bg-slate-800', chatItemActive: 'bg-slate-800 ring-1 ring-blue-500/40',
+                bubbleOther: 'bg-slate-800 text-slate-100 border border-slate-700',
+                memberRow: 'bg-slate-900/60 border-slate-700', select: 'bg-slate-900 border-slate-600 text-white',
+                uploadZone: 'border-slate-600 hover:border-blue-500 hover:bg-slate-800 text-slate-300 hover:text-blue-400',
+                addPanel: 'bg-slate-900/60 border-slate-700',
+            },
+        };
+
+        let currentUser = '';
+        let avatarUrl = '';
+        let avatarBlobUrl = null;
+        let theme = 'light';
+        let customGroups = [];
+        let chatMessages = {};
+        let chatMembers = {};
+        let realtimeChannel = null;
+        let chatOpenOnMobile = false;
+        let activeChatId = 'general';
+        let activeTab = 'all';
+        let searchQuery = '';
+        let typingTimer = null;
+        let demoReplyTimer = null;
+
+        const getEl = (id) => document.getElementById(id);
+
+        function escapeHtml(str) {
+            const el = document.createElement('span');
+            el.textContent = str;
+            return el.innerHTML;
+        }
+
+        function isMobile() { return window.innerWidth < 768; }
+
+        function formatTime(date) {
+            const d = date ? new Date(date) : new Date();
+            return isNaN(d.getTime()) ? '' : d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function getAllChats() { return [...BASE_CHATS, ...customGroups]; }
+
+        function getChat(id) { return getAllChats().find(c => c.id === id) || BASE_CHATS[0]; }
+
+        function getMessages(chatId) {
+            if (!chatMessages[chatId]) chatMessages[chatId] = [];
+            return chatMessages[chatId];
+        }
+
+        function getMembers(chatId) {
+            if (!chatMembers[chatId]) initMembersForChat(chatId);
+            return chatMembers[chatId];
+        }
+
+        function initMembersForChat(chatId) {
+            if (chatId === 'general') {
+                chatMembers.general = [
+                    { id: 'self', name: currentUser, role: 'admin', isSelf: true },
+                    { id: 'dir-ivan', name: 'Иван (Методология)', role: 'member' },
+                    { id: 'dir-elena', name: 'Елена (Бухгалтерия)', role: 'member' },
+                ];
+            } else if (chatId.startsWith('group-')) {
+                chatMembers[chatId] = [{ id: 'self', name: currentUser, role: 'admin', isSelf: true }];
+            }
+        }
+
+        function saveCustomData() {
+            localStorage.setItem('chat_custom_groups', JSON.stringify(customGroups));
+            localStorage.setItem('chat_messages_data', JSON.stringify(chatMessages));
+            localStorage.setItem('chat_members_data', JSON.stringify(chatMembers));
+        }
+
+        function loadCustomData() {
+            try {
+                customGroups = JSON.parse(localStorage.getItem('chat_custom_groups') || '[]');
+                chatMessages = { ...JSON.parse(localStorage.getItem('chat_messages_data') || '{}') };
+                const savedMembers = JSON.parse(localStorage.getItem('chat_members_data') || '{}');
+                chatMembers = { ...savedMembers };
+            } catch {
+                customGroups = [];
+                chatMessages = {};
+                chatMembers = {};
+            }
+            if (chatMembers.general) {
+                const self = chatMembers.general.find(m => m.id === 'self');
+                if (self) self.name = currentUser;
+            }
+        }
+
+        function addSystemMessage(chatId, text) {
+            addMessage(chatId, {
+                id: 'sys-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                type: 'system',
+                text,
+                time: new Date().toISOString(),
+            });
+        }
+
+        function shortName(fullName) {
+            return fullName.split('(')[0].trim();
+        }
+
+        function applyTheme(t) {
+            theme = t;
+            localStorage.setItem('chat_theme', t);
+            getEl('app-screen').setAttribute('data-theme', t);
+            const c = THEME[t];
+
+            getEl('sidebar').className = `w-full md:w-[340px] lg:w-[380px] shrink-0 flex flex-col h-full z-10 border-r transition-colors duration-300 ${c.sidebar}`;
+            getEl('sidebar-header').className = `p-4 border-b flex items-center justify-between shrink-0 transition-colors duration-300 ${c.sidebarHeader}`;
+            getEl('sidebar-footer').className = `p-3 border-t shrink-0 transition-colors duration-300 ${c.sidebarFooter}`;
+            getEl('chat-header').className = `px-4 py-3 border-b flex items-center gap-2 shadow-sm shrink-0 transition-colors duration-300 ${c.chatHeader}`;
+            getEl('messages-container').className = `flex-1 overflow-y-auto px-4 py-4 space-y-3 scroll-smooth transition-colors duration-300 ${c.chatBg}`;
+            getEl('input-panel').className = `p-3 md:p-4 border-t shrink-0 safe-bottom relative transition-colors duration-300 ${c.inputPanel} shadow-[0_-4px_20px_rgba(0,0,0,0.04)]`;
+
+            getEl('current-user-display').className = `font-semibold text-sm truncate ${c.textPrimary}`;
+            getEl('chats-label').className = `text-[10px] font-semibold uppercase tracking-widest px-2 ${c.textMuted}`;
+            getEl('theme-label').className = `text-[10px] font-semibold uppercase tracking-widest px-1 mb-2 ${c.textMuted}`;
+            getEl('chat-title').className = `font-bold text-sm truncate ${c.textPrimary}`;
+            getEl('chat-subtitle').className = `text-xs truncate ${c.textMuted}`;
+            getEl('emoji-label').className = `text-[10px] font-semibold uppercase tracking-wider mb-2 px-1 ${c.textMuted}`;
+            getEl('settings-title').className = `text-lg font-bold ${c.textPrimary}`;
+            getEl('group-modal-title').className = `text-lg font-bold ${c.textPrimary}`;
+            getEl('members-modal-title').className = `text-lg font-bold ${c.textPrimary}`;
+
+            getEl('search-input').className = `w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all ${c.search}`;
+            getEl('search-icon').className = `material-icons absolute left-3 top-1/2 -translate-y-1/2 text-lg pointer-events-none ${c.searchIcon}`;
+            getEl('message-input').className = `flex-1 px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all min-w-0 ${c.input}`;
+            document.querySelectorAll('.fld-input').forEach(el => { el.className = `fld-input w-full px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 ${c.input}`; });
+            document.querySelectorAll('.lbl-muted').forEach(el => { el.className = `lbl-muted block text-xs font-medium mb-1.5 uppercase tracking-wider ${c.textMuted}`; });
+
+            getEl('settings-btn').className = `theme-icon-btn p-2 rounded-lg transition-colors ${c.iconBtn}`;
+            getEl('logout-btn').className = `theme-icon-btn p-2 rounded-lg transition-colors hover:!text-red-500 ${c.iconBtn}`;
+            getEl('back-btn').className = `md:hidden p-2 -ml-1 rounded-lg shrink-0 transition-colors ${c.iconBtn}`;
+            getEl('members-btn').className = `shrink-0 p-2 rounded-lg transition-colors ${c.iconBtn}`;
+            getEl('modal-close-x').className = `p-1.5 rounded-lg transition-colors ${c.iconBtn}`;
+            getEl('group-modal-close-x').className = `p-1.5 rounded-lg transition-colors ${c.iconBtn}`;
+            getEl('members-modal-close').className = `p-1.5 rounded-lg transition-colors ${c.iconBtn}`;
+            getEl('emoji-btn').className = `p-2.5 rounded-xl shrink-0 transition-colors ${c.iconBtn}`;
+            getEl('attach-btn').className = `p-2.5 rounded-xl shrink-0 transition-colors ${c.iconBtn}`;
+
+            getEl('emoji-picker').className = `absolute bottom-full left-3 mb-2 z-[60] rounded-2xl shadow-2xl border p-3 w-[min(320px,calc(100vw-2rem))] ${c.emojiPanel}`;
+            ['settings-modal-box','group-modal-box','members-modal-box'].forEach(id => {
+                getEl(id).className = `w-full ${id.includes('members') ? 'max-w-md max-h-[85vh] flex flex-col' : id.includes('group') ? 'max-w-sm' : 'max-w-md'} rounded-2xl shadow-2xl border overflow-hidden transition-colors duration-300 ${c.modal}`;
+            });
+            ['settings-modal-header','group-modal-header','members-modal-header'].forEach(id => {
+                getEl(id).className = `px-6 py-4 border-b flex items-center justify-between shrink-0 ${c.modalHeader}`;
+            });
+            getEl('settings-modal-footer').className = `px-6 py-4 border-t flex gap-3 ${c.modalHeader}`;
+            getEl('avatar-upload-zone').className = `flex items-center justify-center gap-2 w-full py-4 px-4 rounded-xl border-2 border-dashed transition-all text-sm font-medium ${c.uploadZone}`;
+            getEl('add-member-panel').className = `mt-3 rounded-xl border p-2 space-y-1 ${c.addPanel}`;
+
+            getEl('theme-light-btn').className = `flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${c.toggleBtn}` + (t === 'light' ? ' ring-2 ring-blue-500' : '');
+            getEl('theme-dark-btn').className = `flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${c.toggleBtn}` + (t === 'dark' ? ' ring-2 ring-blue-500' : '');
+            getEl('modal-close-btn').className = `flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${c.toggleBtn}`;
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = `tab-btn flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${btn.dataset.tab === activeTab ? c.tabActive : c.tabInactive}`;
+            });
+
+            renderChatList();
+            renderMessages();
+            if (getEl('members-modal').classList.contains('is-open')) renderMembersModal();
+        }
+
+        function renderAvatar(el, name) {
+            if (avatarUrl) {
+                el.innerHTML = `<img src="${avatarUrl.replace(/"/g, '&quot;')}" alt="" class="w-full h-full object-cover">`;
+            } else {
+                el.innerHTML = '';
+                el.textContent = (name || currentUser).substring(0, 2).toUpperCase();
+            }
+        }
+
+        function updateUserDisplay() {
+            getEl('current-user-display').textContent = currentUser;
+            renderAvatar(getEl('user-avatar'), currentUser);
+            const members = chatMembers.general;
+            if (members) {
+                const self = members.find(m => m.id === 'self');
+                if (self) self.name = currentUser;
+            }
+        }
+
+        function getPreviewText(chatId) {
+            const msgs = getMessages(chatId);
+            if (!msgs.length) return chatId === 'general' ? 'Нажмите, чтобы открыть' : 'Нет сообщений';
+            const last = msgs.filter(m => m.type !== 'system').pop() || msgs[msgs.length - 1];
+            if (!last) return 'Нет сообщений';
+            if (last.type === 'image') return `${last.sender}: 📷 Фото`;
+            if (last.type === 'system') return last.text;
+            const t = (last.text || '').length > 35 ? last.text.slice(0, 35) + '…' : (last.text || '');
+            return `${last.sender}: ${t}`;
+        }
+
+        function renderChatList() {
+            const list = getEl('chat-list');
+            const c = THEME[theme];
+            const q = searchQuery.toLowerCase().trim();
+            let chats = getAllChats();
+            if (activeTab === 'personal') chats = chats.filter(ch => ch.type === 'personal');
+            else if (activeTab === 'groups') chats = chats.filter(ch => ch.type === 'group');
+            if (q) chats = chats.filter(ch => ch.name.toLowerCase().includes(q) || ch.searchable.includes(q));
+
+            if (!chats.length) {
+                list.innerHTML = `<p class="text-center text-sm py-8 px-4 ${c.textMuted}">Ничего не найдено</p>`;
+                return;
+            }
+
+            list.innerHTML = chats.map(chat => {
+                const isActive = chat.id === activeChatId;
+                const prev = chat.functional ? getPreviewText(chat.id) : chat.subtitle;
+                const unread = chat.unread > 0 ? `<span class="min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold shrink-0">${chat.unread}</span>` : '';
+                let badge = '';
+                if (chat.id === 'general') {
+                    badge = `<span id="status-badge" class="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0 ${isProdMode ? (theme === 'dark' ? 'bg-emerald-900/50 text-emerald-400' : 'bg-emerald-100 text-emerald-700') : (theme === 'dark' ? 'bg-amber-900/50 text-amber-400' : 'bg-amber-100 text-amber-700')}">${isProdMode ? 'Realtime' : 'Демо'}</span>`;
+                } else if (chat.custom) {
+                    badge = `<span class="text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 ${theme === 'dark' ? 'bg-violet-900/50 text-violet-300' : 'bg-violet-100 text-violet-700'}">Группа</span>`;
+                }
+                return `
+                    <button type="button" data-chat-id="${chat.id}" class="chat-item w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left ${isActive ? c.chatItemActive : c.chatItem}">
+                        <div class="relative shrink-0">
+                            <div class="w-11 h-11 rounded-xl ${chat.color} flex items-center justify-center text-white shadow-sm"><span class="material-icons text-xl">${chat.icon}</span></div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-center gap-2">
+                                <h4 class="text-sm font-semibold truncate ${c.textPrimary}">${escapeHtml(chat.name)}</h4>
+                                <div class="flex items-center gap-1 shrink-0">${badge}${unread}</div>
+                            </div>
+                            <p class="text-xs truncate mt-0.5 ${c.textMuted}">${escapeHtml(prev)}</p>
+                        </div>
+                    </button>`;
+            }).join('');
+
+            list.querySelectorAll('.chat-item').forEach(btn => {
+                btn.addEventListener('click', () => selectChat(btn.dataset.chatId, true));
+            });
+        }
+
+        function clearUnread(chatId) {
+            const chat = BASE_CHATS.find(c => c.id === chatId);
+            if (chat && chat.unread > 0) {
+                chat.unread = 0;
+                renderChatList();
+            }
+        }
+
+        function showAuth() {
+            getEl('auth-screen').classList.remove('is-hidden');
+            getEl('app-screen').classList.add('is-hidden');
+        }
+
+        function showApp() {
+            getEl('auth-screen').classList.add('is-hidden');
+            getEl('app-screen').classList.remove('is-hidden');
+            currentUser = localStorage.getItem('chat_username') || '';
+            avatarUrl = localStorage.getItem('chat_avatar') || '';
+            theme = localStorage.getItem('chat_theme') || 'light';
+            loadCustomData();
+            if (!chatMembers.general) initMembersForChat('general');
+            updateUserDisplay();
+            initMessenger();
+            applyTheme(theme);
+            selectChat('general', false);
+            if (isMobile()) showSidebarOnly();
+        }
+
+        function showSidebarOnly() {
+            chatOpenOnMobile = false;
+            getEl('sidebar').classList.remove('is-mobile-hidden');
+            getEl('chat-window').classList.add('is-mobile-hidden');
+        }
+
+        function selectChat(chatId, fromUserClick) {
+            activeChatId = chatId;
+            const chat = getChat(chatId);
+            chatOpenOnMobile = true;
+            clearUnread(chatId);
+
+            getEl('chat-window').classList.remove('is-mobile-hidden');
+            if (isMobile()) getEl('sidebar').classList.add('is-mobile-hidden');
+            else getEl('sidebar').classList.remove('is-mobile-hidden');
+
+            getEl('chat-title').textContent = chat.name;
+            if (chat.functional) {
+                const memberCount = getMembers(chatId).length;
+                getEl('chat-subtitle').textContent = chat.id === 'general'
+                    ? (isProdMode ? `Realtime · ${memberCount} участников` : `Демо · ${memberCount} участников`)
+                    : `Группа · ${memberCount} участников`;
+            } else {
+                getEl('chat-subtitle').textContent = chat.subtitle;
+            }
+            getEl('chat-header-icon').className = `w-10 h-10 rounded-xl ${chat.color} flex items-center justify-center text-white shadow-sm shrink-0`;
+            getEl('chat-header-icon').innerHTML = `<span class="material-icons">${chat.icon}</span>`;
+
+            const showMembers = chat.type === 'group' && chat.functional;
+            getEl('members-btn').classList.toggle('hidden', !showMembers);
+            getEl('input-panel').style.display = chat.functional ? '' : 'none';
+
+            hideTyping();
+            renderChatList();
+            renderMessages();
+            scrollToBottom();
+            if (fromUserClick && chat.functional) getEl('message-input').focus();
+        }
+
+        function backToSidebar() { if (isMobile()) showSidebarOnly(); }
+
+        function scrollToBottom() {
+            const container = getEl('messages-container');
+            if (container) requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; });
+        }
+
+        function renderChecks(status) {
+            if (status === 1) return `<span class="text-[11px] text-white/50 leading-none ml-0.5">✓</span>`;
+            if (status === 2) return `<span class="text-[11px] text-sky-300 leading-none ml-0.5">✓✓</span>`;
+            return '';
+        }
+
+        function renderMessageBody(msg) {
+            if (msg.type === 'image' && msg.imageUrl) {
+                const safeUrl = msg.imageUrl.replace(/"/g, '&quot;');
+                return `<div class="mb-1"><img src="${safeUrl}" alt="${escapeHtml(msg.fileName || 'Изображение')}" class="img-thumb rounded-xl max-w-[240px] max-h-[200px] object-cover block" data-lightbox-src="${safeUrl}"></div>${msg.text ? `<p class="whitespace-pre-wrap break-words text-xs opacity-80 mt-1">${escapeHtml(msg.text)}</p>` : ''}`;
+            }
+            return `<p class="whitespace-pre-wrap break-words">${escapeHtml(msg.text || '')}</p>`;
+        }
+
+        function renderMessages() {
+            const container = getEl('messages-container');
+            const c = THEME[theme];
+            const chat = getChat(activeChatId);
+            const messages = getMessages(activeChatId);
+            const sysClass = theme === 'dark' ? 'system-msg-dark' : 'system-msg-light';
+
+            if (!chat.functional) {
+                container.innerHTML = `<div class="flex flex-col items-center justify-center h-full min-h-[200px] text-center px-6">
+                    <div class="w-16 h-16 rounded-2xl ${chat.color} flex items-center justify-center text-white mb-4 shadow-lg"><span class="material-icons text-3xl">${chat.icon}</span></div>
+                    <h4 class="text-lg font-semibold mb-2 ${c.textPrimary}">${escapeHtml(chat.name)}</h4>
+                    <p class="text-sm max-w-xs ${c.textMuted}">Личный чат — скоро в полной версии. Общайтесь в <b>Общем канале</b> или создайте <b>группу</b>.</p></div>`;
+                return;
+            }
+
+            if (!messages.length) {
+                container.innerHTML = `<div class="flex items-center justify-center h-full min-h-[120px] text-sm ${c.textMuted}">Здесь пока нет сообщений. Напишите первым!</div>`;
+                renderChatList();
+                return;
+            }
+
+            container.innerHTML = messages.map(msg => {
+                if (msg.type === 'system') {
+                    return `<div class="flex justify-center my-1" data-msg-id="${msg.id}">
+                        <span class="text-[11px] px-3 py-1.5 rounded-full font-medium text-center max-w-[90%] ${sysClass}">${escapeHtml(msg.text)}</span></div>`;
+                }
+                const isMe = msg.sender === currentUser;
+                const time = formatTime(msg.time || msg.created_at);
+                const bubbleClass = isMe ? 'msg-bubble-own bg-blue-600 text-white rounded-br-sm' : `msg-bubble-other rounded-bl-sm ${c.bubbleOther}`;
+                return `<div class="flex flex-col ${isMe ? 'items-end' : 'items-start'}" data-msg-id="${msg.id}">
+                    <div class="msg-sender text-[11px] mb-0.5 px-1 font-medium">${escapeHtml(msg.sender)}</div>
+                    <div class="max-w-[85%] sm:max-w-[75%] px-3.5 py-2 rounded-2xl text-sm shadow-sm break-words ${bubbleClass}">
+                        ${renderMessageBody(msg)}
+                        <div class="flex items-end justify-end gap-0.5 mt-1 msg-meta text-[10px] leading-none select-none">
+                            <span>${time}</span>${isMe ? `<span class="read-status">${renderChecks(msg.readStatus)}</span>` : ''}
+                        </div></div></div>`;
+            }).join('');
+
+            container.querySelectorAll('[data-lightbox-src]').forEach(img => {
+                img.addEventListener('click', () => openLightbox(img.dataset.lightboxSrc));
+            });
+            renderChatList();
+            scrollToBottom();
+        }
+
+        function updateReadStatus(chatId, msgId, status) {
+            const msg = getMessages(chatId).find(m => m.id === msgId);
+            if (msg) msg.readStatus = status;
+            const row = document.querySelector(`[data-msg-id="${msgId}"] .read-status`);
+            if (row) row.innerHTML = renderChecks(status);
+        }
+
+        function scheduleReadReceipts(chatId, msgId) {
+            setTimeout(() => updateReadStatus(chatId, msgId, 1), 500);
+            setTimeout(() => updateReadStatus(chatId, msgId, 2), 2000);
+        }
+
+        function addMessage(chatId, msg, scheduleReceipts = false) {
+            const msgs = getMessages(chatId);
+            if (msg.id != null && msgs.some(m => m.id === msg.id)) return;
+            if (!msg.time) msg.time = new Date().toISOString();
+            msgs.push(msg);
+            if (msgs.length > 100) chatMessages[chatId] = msgs.slice(-100);
+            saveCustomData();
+            if (activeChatId === chatId) renderMessages();
+            else renderChatList();
+            if (scheduleReceipts && msg.sender === currentUser) scheduleReadReceipts(chatId, msg.id);
+        }
+
+        function openMembersModal() {
+            const chat = getChat(activeChatId);
+            if (chat.type !== 'group' || !chat.functional) return;
+            closeAllModals();
+            getEl('members-modal-title').textContent = `Участники · ${chat.name}`;
+            getEl('add-member-panel').classList.remove('is-open');
+            renderMembersModal();
+            getEl('members-modal').classList.add('is-open');
+        }
+
+        function closeMembersModal() {
+            getEl('members-modal').classList.remove('is-open');
+            getEl('add-member-panel').classList.remove('is-open');
+        }
+
+        function renderAddMemberPanel() {
+            const panel = getEl('add-member-panel');
+            const c = THEME[theme];
+            const members = getMembers(activeChatId);
+            const existingNames = new Set(members.map(m => m.name));
+            const available = COLLEAGUE_DIRECTORY.filter(col => !existingNames.has(col.name));
+
+            if (!available.length) {
+                panel.innerHTML = `<p class="text-xs text-center py-2 ${c.textMuted}">Все коллеги уже в беседе</p>`;
+                return;
+            }
+
+            panel.innerHTML = available.map(col => `
+                <button type="button" data-add-id="${col.id}" class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-700 transition-all text-left add-colleague-btn">
+                    <div class="w-8 h-8 rounded-lg ${col.color} flex items-center justify-center text-white shrink-0"><span class="material-icons text-sm">${col.icon}</span></div>
+                    <span class="text-sm font-medium ${c.textPrimary}">${escapeHtml(col.name)}</span>
+                </button>`).join('');
+
+            panel.querySelectorAll('.add-colleague-btn').forEach(btn => {
+                btn.addEventListener('click', () => addMemberToChat(btn.dataset.addId));
+            });
+        }
+
+        function renderMembersModal() {
+            const c = THEME[theme];
+            const members = getMembers(activeChatId);
+            const list = getEl('members-list');
+
+            list.innerHTML = members.map(m => {
+                const isSelf = m.id === 'self' || m.name === currentUser;
+                const initials = m.name.substring(0, 2).toUpperCase();
+                const removeBtn = isSelf ? '' : `<button type="button" data-remove-id="${m.id}" class="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-500 transition-colors remove-member-btn" title="Исключить"><span class="material-icons text-lg">person_remove</span></button>`;
+                const roleSelect = `<select data-member-id="${m.id}" class="role-select text-xs rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-500 ${c.select}" ${isSelf ? 'disabled' : ''}>
+                    <option value="member" ${m.role === 'member' ? 'selected' : ''}>Участник</option>
+                    <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>Администратор</option>
+                </select>`;
+                return `<div class="flex items-center gap-3 p-3 rounded-xl border ${c.memberRow}">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">${initials}</div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold truncate ${c.textPrimary}">${escapeHtml(m.name)}${isSelf ? `<span class="text-xs font-normal text-blue-500 ml-1">(вы)</span>` : ''}</p>
+                        <p class="text-[10px] ${c.textMuted}">${m.role === 'admin' ? 'Администратор' : 'Участник'}</p>
+                    </div>
+                    ${roleSelect}${removeBtn}
+                </div>`;
+            }).join('');
+
+            list.querySelectorAll('.role-select').forEach(sel => {
+                sel.addEventListener('change', () => changeMemberRole(sel.dataset.memberId, sel.value));
+            });
+            list.querySelectorAll('.remove-member-btn').forEach(btn => {
+                btn.addEventListener('click', () => removeMemberFromChat(btn.dataset.removeId));
+            });
+            renderAddMemberPanel();
+        }
+
+        function addMemberToChat(directoryId) {
+            const col = COLLEAGUE_DIRECTORY.find(c => c.id === directoryId);
+            if (!col) return;
+            const members = getMembers(activeChatId);
+            if (members.some(m => m.name === col.name)) return;
+
+            members.push({ id: directoryId, name: col.name, role: 'member' });
+            saveCustomData();
+            addSystemMessage(activeChatId, `${currentUser} добавил пользователя ${shortName(col.name)}`);
+            getEl('add-member-panel').classList.remove('is-open');
+            renderMembersModal();
+            selectChat(activeChatId, false);
+        }
+
+        function removeMemberFromChat(memberId) {
+            const members = getMembers(activeChatId);
+            const idx = members.findIndex(m => m.id === memberId);
+            if (idx === -1 || members[idx].id === 'self') return;
+            const removed = members.splice(idx, 1)[0];
+            saveCustomData();
+            addSystemMessage(activeChatId, `${currentUser} исключил пользователя ${shortName(removed.name)}`);
+            renderMembersModal();
+            selectChat(activeChatId, false);
+        }
+
+        function changeMemberRole(memberId, newRole) {
+            const members = getMembers(activeChatId);
+            const member = members.find(m => m.id === memberId);
+            if (!member || member.id === 'self') return;
+            const oldRole = member.role;
+            if (oldRole === newRole) return;
+            member.role = newRole;
+            saveCustomData();
+            const roleLabel = newRole === 'admin' ? 'Администратором' : 'Участником';
+            addSystemMessage(activeChatId, `${currentUser} назначил пользователя ${shortName(member.name)} ${roleLabel}`);
+            renderMembersModal();
+        }
+
+        function showTyping(sender) {
+            getEl('typing-text').textContent = ` ${sender} печатает...`;
+            getEl('typing-indicator').classList.remove('hidden');
+        }
+
+        function hideTyping() {
+            getEl('typing-indicator').classList.add('hidden');
+            if (typingTimer) { clearTimeout(typingTimer); typingTimer = null; }
+        }
+
+        function triggerDemoReply() {
+            if (isProdMode || activeChatId !== 'general') return;
+            if (demoReplyTimer) clearTimeout(demoReplyTimer);
+            const reply = DEMO_REPLIES[Math.floor(Math.random() * DEMO_REPLIES.length)];
+            typingTimer = setTimeout(() => showTyping(reply.sender), 1000);
+            demoReplyTimer = setTimeout(() => {
+                hideTyping();
+                addMessage('general', { id: 'demo-' + Date.now(), text: reply.text, sender: reply.sender, time: new Date().toISOString(), type: 'text' });
+            }, 2000);
+        }
+
+        async function initMessenger() {
+            if (realtimeChannel && supabaseClient) {
+                await supabaseClient.removeChannel(realtimeChannel);
+                realtimeChannel = null;
+            }
+            if (!isProdMode) {
+                if (!getMessages('general').length) {
+                    const now = Date.now();
+                    chatMessages.general = [
+                        { id: 'd1', text: 'Коллеги, доброе утро! Кто уже смотрел новую платформу?', sender: 'Иван (Методология)', time: new Date(now - 3600000).toISOString(), type: 'text' },
+                        { id: 'd2', text: 'Привет! Я как раз тестирую с телефона — всё отлично.', sender: 'Елена (Бухгалтерия)', time: new Date(now - 3000000).toISOString(), type: 'text' },
+                        { id: 'd3', text: 'Напоминаю: сегодня в 15:00 общий созвон.', sender: 'Бот-помощник', time: new Date(now - 1800000).toISOString(), type: 'text' },
+                        { id: 'd4', text: 'Добро пожаловать! Пишите в чат — коллеги ответят автоматически.', sender: 'Система', time: new Date(now - 600000).toISOString(), type: 'text' },
+                    ];
+                    saveCustomData();
+                }
+                return;
+            }
+            const { data, error } = await supabaseClient.from('messages').select('id, text, sender, created_at').order('id', { ascending: true }).limit(100);
+            if (error) {
+                chatMessages.general = [{ id: 'err-0', text: 'Не удалось загрузить сообщения.', sender: 'Система', time: new Date().toISOString(), type: 'text' }];
+                return;
+            }
+            chatMessages.general = (data || []).map(m => ({ ...m, time: m.created_at, type: 'text' }));
+            realtimeChannel = supabaseClient.channel('public:messages')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+                    addMessage('general', { ...payload.new, time: payload.new.created_at, type: 'text' });
+                }).subscribe();
+        }
+
+        async function sendMessage(e) {
+            e.preventDefault();
+            const chat = getChat(activeChatId);
+            if (!chat.functional) return;
+            const input = getEl('message-input');
+            const text = input.value.trim();
+            if (!text) return;
+            input.value = '';
+            closeEmojiPicker();
+            const msg = { id: Date.now(), text, sender: currentUser, time: new Date().toISOString(), readStatus: 0, type: 'text' };
+            if (!isProdMode) {
+                addMessage(activeChatId, msg, true);
+                if (activeChatId === 'general') triggerDemoReply();
+                return;
+            }
+            if (activeChatId !== 'general') { addMessage(activeChatId, msg, true); return; }
+            addMessage('general', msg, true);
+            const { error } = await supabaseClient.from('messages').insert([{ text, sender: currentUser }]);
+            if (error) addMessage('general', { id: 'err-' + Date.now(), text: 'Не удалось отправить.', sender: 'Система', time: new Date().toISOString(), type: 'text' });
+        }
+
+        function onFileSelected(e) {
+            const file = e.target.files[0];
+            const chat = getChat(activeChatId);
+            if (!file || !chat.functional) return;
+            e.target.value = '';
+            const msgId = Date.now();
+            if (file.type.startsWith('image/')) {
+                const objectUrl = URL.createObjectURL(file);
+                addMessage(activeChatId, { id: msgId, imageUrl: objectUrl, fileName: file.name, sender: currentUser, time: new Date().toISOString(), readStatus: 0, type: 'image' }, true);
+            } else {
+                addMessage(activeChatId, { id: msgId, text: `📎 Файл «${file.name}» успешно прикреплён`, sender: currentUser, time: new Date().toISOString(), readStatus: 0, type: 'file' }, true);
+            }
+            if (!isProdMode && activeChatId === 'general') triggerDemoReply();
+        }
+
+        function openLightbox(src) { getEl('lightbox-img').src = src; getEl('lightbox').classList.add('is-open'); document.body.style.overflow = 'hidden'; }
+        function closeLightbox() { getEl('lightbox').classList.remove('is-open'); getEl('lightbox-img').src = ''; document.body.style.overflow = ''; }
+
+        function closeAllModals() {
+            closeSettings(); closeGroupModal(); closeMembersModal(); closeLightbox(); closeEmojiPicker();
+        }
+
+        function openGroupModal() {
+            closeAllModals();
+            getEl('group-name-input').value = '';
+            getEl('group-modal').classList.add('is-open');
+            setTimeout(() => getEl('group-name-input').focus(), 100);
+        }
+
+        function closeGroupModal() { getEl('group-modal').classList.remove('is-open'); }
+
+        function createGroup(e) {
+            if (e) e.preventDefault();
+            const name = getEl('group-name-input').value.trim();
+            if (name.length < 2) return;
+            const id = 'group-' + Date.now();
+            customGroups.push({ id, name, subtitle: 'Групповая беседа', icon: 'group_work', color: 'bg-violet-600', searchable: name.toLowerCase(), type: 'group', functional: true, custom: true });
+            chatMessages[id] = [];
+            initMembersForChat(id);
+            saveCustomData();
+            closeGroupModal();
+            activeTab = 'groups';
+            applyTheme(theme);
+            selectChat(id, true);
+        }
+
+        function setActiveTab(tab) { activeTab = tab; applyTheme(theme); }
+
+        function buildEmojiPicker() {
+            getEl('emoji-grid').innerHTML = EMOJIS.map(e => `<button type="button" class="emoji-item text-xl p-1.5 rounded-lg hover:bg-blue-100 transition-colors" data-emoji="${e}">${e}</button>`).join('');
+            getEl('emoji-grid').querySelectorAll('.emoji-item').forEach(btn => {
+                btn.addEventListener('click', () => { getEl('message-input').value += btn.dataset.emoji; getEl('message-input').focus(); });
+            });
+        }
+
+        function toggleEmojiPicker() { getEl('emoji-picker').classList.toggle('is-open'); }
+        function closeEmojiPicker() { getEl('emoji-picker').classList.remove('is-open'); }
+
+        function openSettings() {
+            closeAllModals();
+            getEl('settings-name').value = currentUser;
+            getEl('settings-avatar-url').value = avatarUrl && avatarUrl.startsWith('http') ? avatarUrl : '';
+            renderAvatar(getEl('settings-avatar-preview'), currentUser);
+            getEl('settings-modal').classList.add('is-open');
+        }
+
+        function closeSettings() { getEl('settings-modal').classList.remove('is-open'); }
+
+        function setAvatarFromUrl(url) {
+            if (avatarBlobUrl) { URL.revokeObjectURL(avatarBlobUrl); avatarBlobUrl = null; }
+            avatarUrl = url;
+            renderAvatar(getEl('settings-avatar-preview'), currentUser);
+            renderAvatar(getEl('user-avatar'), currentUser);
+        }
+
+        function handleAvatarFile(e) {
+            const file = e.target.files[0];
+            if (!file || !file.type.startsWith('image/')) return;
+            if (avatarBlobUrl) URL.revokeObjectURL(avatarBlobUrl);
+            avatarBlobUrl = URL.createObjectURL(file);
+            setAvatarFromUrl(avatarBlobUrl);
+            e.target.value = '';
+        }
+
+        function saveSettings() {
+            const name = getEl('settings-name').value.trim();
+            if (name.length >= 2) {
+                const oldName = currentUser;
+                currentUser = name;
+                localStorage.setItem('chat_username', name);
+                if (oldName !== name) {
+                    Object.values(chatMembers).forEach(arr => arr.forEach(m => { if (m.id === 'self') m.name = name; }));
+                    saveCustomData();
+                }
+            }
+            const urlInput = getEl('settings-avatar-url').value.trim();
+            if (urlInput) {
+                if (avatarBlobUrl) { URL.revokeObjectURL(avatarBlobUrl); avatarBlobUrl = null; }
+                avatarUrl = urlInput;
+                localStorage.setItem('chat_avatar', avatarUrl);
+                setAvatarFromUrl(avatarUrl);
+            } else if (avatarBlobUrl) {
+                localStorage.setItem('chat_avatar', avatarBlobUrl);
+            }
+            updateUserDisplay();
+            renderMessages();
+            closeSettings();
+        }
+
+        function handleAuth(e) {
+            if (e) e.preventDefault();
+            const username = getEl('username-input').value.trim();
+            if (username.length < 2) return;
+            localStorage.setItem('chat_username', username);
+            showApp();
+        }
+
+        function logout() {
+            if (avatarBlobUrl) URL.revokeObjectURL(avatarBlobUrl);
+            if (realtimeChannel && supabaseClient) supabaseClient.removeChannel(realtimeChannel);
+            localStorage.removeItem('chat_username');
+            window.location.href = window.location.pathname + window.location.search;
+        }
+
+        window.addEventListener('resize', () => {
+            if (getEl('app-screen').classList.contains('is-hidden')) return;
+            if (isMobile()) {
+                if (chatOpenOnMobile) { getEl('sidebar').classList.add('is-mobile-hidden'); getEl('chat-window').classList.remove('is-mobile-hidden'); }
+                else showSidebarOnly();
+            } else {
+                getEl('sidebar').classList.remove('is-mobile-hidden');
+                getEl('chat-window').classList.remove('is-mobile-hidden');
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!getEl('emoji-picker').contains(e.target) && !getEl('emoji-btn').contains(e.target)) closeEmojiPicker();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeAllModals();
+        });
+
+        function boot() {
+            buildEmojiPicker();
+            currentUser = localStorage.getItem('chat_username') || '';
+
+            getEl('auth-form').addEventListener('submit', handleAuth);
+            getEl('message-form').addEventListener('submit', sendMessage);
+            getEl('logout-btn').addEventListener('click', logout);
+            getEl('back-btn').addEventListener('click', backToSidebar);
+            getEl('settings-btn').addEventListener('click', openSettings);
+            getEl('members-btn').addEventListener('click', openMembersModal);
+            getEl('modal-close-btn').addEventListener('click', closeSettings);
+            getEl('modal-close-x').addEventListener('click', closeSettings);
+            getEl('modal-save-btn').addEventListener('click', saveSettings);
+            getEl('settings-avatar-file').addEventListener('change', handleAvatarFile);
+            getEl('avatar-upload-zone').addEventListener('click', () => getEl('settings-avatar-file').click());
+            getEl('emoji-btn').addEventListener('click', (e) => { e.stopPropagation(); toggleEmojiPicker(); });
+            getEl('attach-btn').addEventListener('click', () => getEl('file-input').click());
+            getEl('file-input').addEventListener('change', onFileSelected);
+            getEl('search-input').addEventListener('input', (e) => { searchQuery = e.target.value; renderChatList(); });
+            getEl('theme-light-btn').addEventListener('click', () => applyTheme('light'));
+            getEl('theme-dark-btn').addEventListener('click', () => applyTheme('dark'));
+            getEl('create-group-btn').addEventListener('click', openGroupModal);
+            getEl('group-form').addEventListener('submit', createGroup);
+            getEl('group-modal-close-x').addEventListener('click', closeGroupModal);
+            getEl('members-modal-close').addEventListener('click', closeMembersModal);
+            getEl('toggle-add-member').addEventListener('click', () => {
+                getEl('add-member-panel').classList.toggle('is-open');
+                if (getEl('add-member-panel').classList.contains('is-open')) renderAddMemberPanel();
+            });
+            getEl('lightbox-close').addEventListener('click', closeLightbox);
+            getEl('lightbox').addEventListener('click', (e) => { if (e.target === getEl('lightbox')) closeLightbox(); });
+
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => setActiveTab(btn.dataset.tab)));
+            getEl('settings-modal').addEventListener('click', (e) => { if (e.target === getEl('settings-modal')) closeSettings(); });
+            getEl('group-modal').addEventListener('click', (e) => { if (e.target === getEl('group-modal')) closeGroupModal(); });
+            getEl('members-modal').addEventListener('click', (e) => { if (e.target === getEl('members-modal')) closeMembersModal(); });
+
+            if (currentUser) showApp();
+            else { showAuth(); getEl('username-input').focus(); }
+        }
+
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+        else boot();
+    </script>
+</body>
+</html>
