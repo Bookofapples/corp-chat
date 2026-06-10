@@ -49,8 +49,15 @@
 </head>
 <body class="h-[100dvh] overflow-hidden font-sans antialiased">
 
+    <style>
+        #auth-container { display: flex; }
+        #chat-container { display: none; }
+        #auth-container.hidden { display: none !important; }
+        #chat-container.visible { display: flex !important; }
+    </style>
+
     <!-- Авторизация -->
-    <div id="auth-screen" class="fixed inset-0 z-50 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 items-center justify-center px-4">
+    <div id="auth-container" class="fixed inset-0 z-50 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 items-center justify-center px-4">
         <div class="w-full max-w-md">
             <div class="text-center mb-8">
                 <div class="bg-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg shadow-blue-600/40 ring-1 ring-white/10">
@@ -108,7 +115,7 @@
     </div>
 
     <!-- Приложение -->
-    <div id="app-screen" class="is-hidden h-[100dvh] w-full" data-theme="light">
+    <div id="chat-container" class="h-[100dvh] w-full" data-theme="light">
         <div class="flex h-full w-full">
 
             <div id="sidebar" class="w-full md:w-[340px] lg:w-[380px] shrink-0 flex flex-col h-full z-10 border-r transition-colors duration-300 bg-white border-slate-200">
@@ -893,12 +900,6 @@
             input.value = '';
             closeEmojiPicker();
             
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session?.user) {
-                alert('Пожалуйста, войдите в аккаунт');
-                return;
-            }
-            
             const msg = { id: Date.now(), text, sender: currentUser, time: new Date().toISOString(), readStatus: 0, type: 'text' };
             if (!isProdMode) {
                 addMessage(activeChatId, msg, true);
@@ -908,7 +909,7 @@
             if (activeChatId !== 'general') { addMessage(activeChatId, msg, true); return; }
             addMessage('general', msg, true);
             const { error } = await supabaseClient.from('messages').insert([
-                { text, sender: currentUser, user_id: session.user.id }
+                { text, sender: currentUser, user_id: currentProfile.id }
             ]);
             if (error) addMessage('general', { id: 'err-' + Date.now(), text: 'Не удалось отправить.', sender: 'Система', time: new Date().toISOString(), type: 'text' });
         }
@@ -1316,30 +1317,253 @@
             if (e.key === 'Escape') closeAllModals();
         });
 
+        function showAuth() {
+            getEl('auth-container').classList.remove('hidden');
+            getEl('chat-container').classList.remove('visible');
+        }
+
+        function showChat() {
+            getEl('auth-container').classList.add('hidden');
+            getEl('chat-container').classList.add('visible');
+            theme = localStorage.getItem('chat_theme') || 'light';
+            loadCustomData();
+            if (!chatMembers.general) initMembersForChat('general');
+            updateUserDisplay();
+            initMessenger();
+            applyTheme(theme);
+            selectChat('general', false);
+            if (isMobile()) showSidebarOnly();
+        }
+
+        function toggleAuthSection(showSignup) {
+            getEl('login-section').classList.toggle('hidden', showSignup);
+            getEl('signup-section').classList.toggle('hidden', !showSignup);
+        }
+
+        async function signUp(e) {
+            e.preventDefault();
+            const name = getEl('signup-name').value.trim();
+            const email = getEl('signup-email').value.trim();
+            const password = getEl('signup-password').value.trim();
+            if (!name || !email || !password) return;
+            
+            const { data, error } = await supabaseClient.auth.signUp({ email, password });
+            if (error) {
+                console.error('Sign up error:', error);
+                alert(error.message);
+            } else if (data.user) {
+                // Save user data to profiles table
+                await supabaseClient
+                    .from('profiles')
+                    .insert([{ id: data.user.id, username: name, email: email, avatar_url: '' }]);
+                
+                // Show confirmation message
+                getEl('email-confirmation').classList.remove('hidden');
+                toggleAuthSection(false);
+            }
+        }
+
+        async function loadUserProfile(userId) {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', userId)
+                    .single();
+                
+                if (error) throw error;
+                
+                currentProfile = data;
+                currentUser = data.username;
+                avatarUrl = data.avatar_url || '';
+                localStorage.setItem('chat_username', currentUser);
+                localStorage.setItem('chat_avatar', avatarUrl);
+            } catch (err) {
+                console.error('Error loading profile:', err);
+            }
+        }
+
+        async function signIn(e) {
+            e.preventDefault();
+            const email = getEl('login-email').value.trim();
+            const password = getEl('login-password').value.trim();
+            if (!email || !password) return;
+            
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ 
+                email, password 
+            });
+            
+            if (error) {
+                console.error('Sign in error:', error);
+                alert(error.message);
+            }
+        }
+
+        async function loadAllUsers() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('profiles')
+                    .select('*')
+                    .order('username', { ascending: true });
+                
+                if (error) throw error;
+                
+                allUsers = data;
+                updateBaseChats();
+                renderChatList();
+            } catch (err) {
+                console.error('Error loading users:', err);
+            }
+        }
+
+        function updateBaseChats() {
+            BASE_CHATS.splice(1, BASE_CHATS.length - 4); // Keep general, bot, etc.
+            allUsers.forEach(user => {
+                if (user.id !== currentProfile?.id) {
+                    BASE_CHATS.push({
+                        id: `user-${user.id}`,
+                        name: user.username,
+                        subtitle: 'Пользователь',
+                        icon: 'person',
+                        color: 'bg-purple-600',
+                        searchable: user.username.toLowerCase(),
+                        type: 'personal',
+                        functional: false,
+                        unread: 0,
+                        avatar: user.avatar_url
+                    });
+                }
+            });
+        }
+
+        async function logout() {
+            if (realtimeChannel && supabaseClient) await supabaseClient.removeChannel(realtimeChannel);
+            await supabaseClient.auth.signOut();
+            localStorage.removeItem('chat_username');
+            localStorage.removeItem('chat_avatar');
+            // Clear fields
+            getEl('login-email').value = '';
+            getEl('login-password').value = '';
+            getEl('signup-name').value = '';
+            getEl('signup-email').value = '';
+            getEl('signup-password').value = '';
+        }
+
+        async function handleAvatarFile(e) {
+            const file = e.target.files[0];
+            // Reset input value immediately to allow selecting the same file again
+            e.target.value = '';
+            if (!file || !file.type.startsWith('image/') || !currentProfile) return;
+            
+            const uploadedUrl = await uploadAvatarToSupabase(file);
+            if (uploadedUrl) {
+                // Update local state
+                avatarUrl = uploadedUrl;
+                // Update database
+                await supabaseClient
+                    .from('profiles')
+                    .update({ avatar_url: uploadedUrl })
+                    .eq('id', currentProfile.id);
+                
+                // Update UI
+                setAvatarFromUrl(avatarUrl);
+                localStorage.setItem('chat_avatar', avatarUrl);
+            }
+        }
+
+        async function uploadAvatarToSupabase(file) {
+            if (!isProdMode || !supabaseClient) {
+                return '';
+            }
+            try {
+                // Extract file extension safely
+                const ext = file.name.split('.').pop();
+                // Generate completely safe filename
+                const fileName = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+                const { error: uploadError } = await supabaseClient
+                    .storage
+                    .from('avatars')
+                    .upload(fileName, file, {
+                        cacheControl: '3600',
+                        upsert: false
+                    });
+                if (uploadError) {
+                    console.error('Upload error:', uploadError);
+                    return '';
+                }
+                const { data: { publicUrl } } = supabaseClient
+                    .storage
+                    .from('avatars')
+                    .getPublicUrl(fileName);
+                return publicUrl;
+            } catch (error) {
+                console.error('Avatar upload error:', error);
+                return '';
+            }
+        }
+
+        function openSettings() {
+            closeAllModals();
+            getEl('settings-name').value = currentProfile?.username || currentUser || '';
+            renderAvatar(getEl('settings-avatar-preview'), currentUser);
+            renderProfileGallery();
+            getEl('settings-modal').classList.add('is-open');
+        }
+
+        async function saveSettings() {
+            const name = getEl('settings-name').value.trim();
+            if (name.length >= 2 && currentProfile) {
+                currentUser = name;
+                currentProfile.username = name;
+                localStorage.setItem('chat_username', name);
+                
+                // Update database
+                await supabaseClient
+                    .from('profiles')
+                    .update({ username: name })
+                    .eq('id', currentProfile.id);
+                
+                updateUserDisplay();
+                renderChatList();
+                renderMessages();
+            }
+            closeSettings();
+        }
+
+        function deleteAccount() {
+            if (confirm('Вы уверены, что хотите удалить свой аккаунт? Это действие нельзя отменить!')) {
+                logout();
+                alert('Запрос на удаление отправлен. Администратор удалит ваш аккаунт из базы данных');
+            }
+        }
+
+        function renderProfileGallery() {
+            const gallery = getEl('profile-gallery');
+            // For now, show placeholder items
+            gallery.innerHTML = Array(8).fill(0).map((_, i) => `
+                <div class="w-full aspect-square rounded-lg bg-slate-200 flex items-center justify-center overflow-hidden">
+                    <span class="material-icons text-slate-400 text-lg">image</span>
+                </div>
+            `).join('');
+        }
+
         async function boot() {
             buildEmojiPicker();
-            
-            // Check for existing session
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (session?.user) {
-                await loadUserProfile(session.user.id);
-                await loadAllUsers();
-                showApp();
-            } else {
-                showAuth();
-                getEl('login-email').focus();
-            }
 
-            // Listen for auth state changes
+            // Single auth state listener
             supabaseClient.auth.onAuthStateChange(async (event, session) => {
                 if (session?.user) {
                     await loadUserProfile(session.user.id);
                     await loadAllUsers();
-                    showApp();
+                    showChat();
                 } else {
                     showAuth();
+                    getEl('login-email').focus();
                 }
             });
+
+            // Check initial session
+            const { data: { session } } = await supabaseClient.auth.getSession();
 
             // Add event listeners for auth
             getEl('login-form').addEventListener('submit', signIn);
