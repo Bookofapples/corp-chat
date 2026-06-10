@@ -227,8 +227,8 @@
     </div>
 
     <script>
-        const SUPABASE_URL = "";
-        const SUPABASE_ANON_KEY = "";
+        const SUPABASE_URL = "https://eebtmgkterepxhyoetha.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_njOiZERvm13ToJTjtWM4dg_ZDHV4Frz";
 
         const isProdMode = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL.trim() !== "" && SUPABASE_ANON_KEY.trim() !== "");
         let supabaseClient = null;
@@ -932,13 +932,52 @@
             renderAvatar(getEl('user-avatar'), currentUser);
         }
 
-        function handleAvatarFile(e) {
+        async function uploadAvatarToSupabase(file) {
+            if (!isProdMode || !supabaseClient) {
+                if (avatarBlobUrl) URL.revokeObjectURL(avatarBlobUrl);
+                avatarBlobUrl = URL.createObjectURL(file);
+                return avatarBlobUrl;
+            }
+            try {
+                const fileName = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${file.name}`;
+                const { error: uploadError } = await supabaseClient
+                    .storage
+                    .from('avatars')
+                    .upload(fileName, file, {
+                        cacheControl: '3600',
+                        upsert: false
+                    });
+                if (uploadError) {
+                    console.error('Upload error:', uploadError);
+                    if (avatarBlobUrl) URL.revokeObjectURL(avatarBlobUrl);
+                    avatarBlobUrl = URL.createObjectURL(file);
+                    return avatarBlobUrl;
+                }
+                const { data: { publicUrl } } = supabaseClient
+                    .storage
+                    .from('avatars')
+                    .getPublicUrl(fileName);
+                return publicUrl;
+            } catch (error) {
+                console.error('Avatar upload error:', error);
+                if (avatarBlobUrl) URL.revokeObjectURL(avatarBlobUrl);
+                avatarBlobUrl = URL.createObjectURL(file);
+                return avatarBlobUrl;
+            }
+        }
+
+        async function handleAvatarFile(e) {
             const file = e.target.files[0];
             if (!file || !file.type.startsWith('image/')) return;
-            if (avatarBlobUrl) URL.revokeObjectURL(avatarBlobUrl);
-            avatarBlobUrl = URL.createObjectURL(file);
-            setAvatarFromUrl(avatarBlobUrl);
             e.target.value = '';
+            const previewUrl = URL.createObjectURL(file);
+            setAvatarFromUrl(previewUrl);
+            const uploadedUrl = await uploadAvatarToSupabase(file);
+            if (uploadedUrl !== previewUrl) {
+                URL.revokeObjectURL(previewUrl);
+                avatarUrl = uploadedUrl;
+                setAvatarFromUrl(avatarUrl);
+            }
         }
 
         function saveSettings() {
@@ -958,6 +997,9 @@
                 avatarUrl = urlInput;
                 localStorage.setItem('chat_avatar', avatarUrl);
                 setAvatarFromUrl(avatarUrl);
+            } else if (avatarUrl && avatarUrl.startsWith('http')) {
+                // Save the Supabase public URL
+                localStorage.setItem('chat_avatar', avatarUrl);
             } else if (avatarBlobUrl) {
                 localStorage.setItem('chat_avatar', avatarBlobUrl);
             }
