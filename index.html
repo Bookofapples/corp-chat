@@ -971,8 +971,9 @@
 
         async function handleAvatarFile(e) {
             const file = e.target.files[0];
-            if (!file || !file.type.startsWith('image/')) return;
+            // Reset input value immediately to allow selecting the same file again
             e.target.value = '';
+            if (!file || !file.type.startsWith('image/')) return;
             const previewUrl = URL.createObjectURL(file);
             setAvatarFromUrl(previewUrl);
             const uploadedUrl = await uploadAvatarToSupabase(file);
@@ -1059,7 +1060,6 @@
             getEl('modal-close-x').addEventListener('click', closeSettings);
             getEl('modal-save-btn').addEventListener('click', saveSettings);
             getEl('settings-avatar-file').addEventListener('change', handleAvatarFile);
-            getEl('avatar-upload-zone').addEventListener('click', () => getEl('settings-avatar-file').click());
             getEl('emoji-btn').addEventListener('click', (e) => { e.stopPropagation(); toggleEmojiPicker(); });
             getEl('attach-btn').addEventListener('click', () => getEl('file-input').click());
             getEl('file-input').addEventListener('change', onFileSelected);
