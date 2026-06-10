@@ -57,13 +57,22 @@
                     <span class="material-icons text-white text-3xl">forum</span>
                 </div>
                 <h1 class="text-2xl font-bold text-white tracking-tight">Корпоративный чат</h1>
-                <p class="text-slate-400 mt-2 text-sm">Войдите по никнейму — пароль не требуется</p>
+                <p class="text-slate-400 mt-2 text-sm">Войдите или зарегистрируйтесь</p>
             </div>
             <form id="auth-form" class="bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-2xl">
-                <label for="username-input" class="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">Никнейм</label>
-                <input type="text" id="username-input" required minlength="2" maxlength="32" placeholder="Антон Иванов"
+                <div id="email-confirmation" class="hidden mb-4 p-4 bg-emerald-900/50 border border-emerald-700/50 rounded-xl text-emerald-200 text-sm">
+                    На вашу почту отправлено письмо. Пожалуйста, подтвердите аккаунт перед входом
+                </div>
+                <label for="email-input" class="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">Email</label>
+                <input type="email" id="email-input" required placeholder="user@example.com"
                     class="w-full px-4 py-3 bg-slate-900/80 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500 mb-4">
-                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-all shadow-lg active:scale-[0.98]">Войти</button>
+                <label for="password-input" class="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">Пароль</label>
+                <input type="password" id="password-input" required minlength="6" placeholder="••••••••"
+                    class="w-full px-4 py-3 bg-slate-900/80 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500 mb-4">
+                <div class="flex gap-3">
+                    <button type="submit" id="signin-btn" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-all shadow-lg active:scale-[0.98]">Войти</button>
+                    <button type="button" id="signup-btn" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-xl transition-all shadow-lg active:scale-[0.98]">Регистрация</button>
+                </div>
             </form>
         </div>
     </div>
@@ -847,6 +856,13 @@
             if (!text) return;
             input.value = '';
             closeEmojiPicker();
+            
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session?.user) {
+                alert('Пожалуйста, войдите в аккаунт');
+                return;
+            }
+            
             const msg = { id: Date.now(), text, sender: currentUser, time: new Date().toISOString(), readStatus: 0, type: 'text' };
             if (!isProdMode) {
                 addMessage(activeChatId, msg, true);
@@ -855,7 +871,9 @@
             }
             if (activeChatId !== 'general') { addMessage(activeChatId, msg, true); return; }
             addMessage('general', msg, true);
-            const { error } = await supabaseClient.from('messages').insert([{ text, sender: currentUser }]);
+            const { error } = await supabaseClient.from('messages').insert([
+                { text, sender: currentUser, user_id: session.user.id }
+            ]);
             if (error) addMessage('general', { id: 'err-' + Date.now(), text: 'Не удалось отправить.', sender: 'Система', time: new Date().toISOString(), type: 'text' });
         }
 
@@ -1004,17 +1022,42 @@
             closeSettings();
         }
 
-        function handleAuth(e) {
-            if (e) e.preventDefault();
-            const username = getEl('username-input').value.trim();
-            if (username.length < 2) return;
-            localStorage.setItem('chat_username', username);
-            showApp();
+        async function signUp() {
+            const email = getEl('email-input').value.trim();
+            const password = getEl('password-input').value.trim();
+            if (!email || !password) return;
+            
+            const { error } = await supabaseClient.auth.signUp({ email, password });
+            if (error) {
+                console.error('Sign up error:', error);
+                alert(error.message);
+            } else {
+                getEl('email-confirmation').classList.remove('hidden');
+            }
         }
 
-        function logout() {
-            if (realtimeChannel && supabaseClient) supabaseClient.removeChannel(realtimeChannel);
+        async function signIn(e) {
+            if (e) e.preventDefault();
+            const email = getEl('email-input').value.trim();
+            const password = getEl('password-input').value.trim();
+            if (!email || !password) return;
+            
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if (error) {
+                console.error('Sign in error:', error);
+                alert(error.message);
+            } else if (data.user) {
+                currentUser = data.user.email.split('@')[0];
+                localStorage.setItem('chat_username', currentUser);
+                showApp();
+            }
+        }
+
+        async function logout() {
+            if (realtimeChannel && supabaseClient) await supabaseClient.removeChannel(realtimeChannel);
+            await supabaseClient.auth.signOut();
             localStorage.removeItem('chat_username');
+            localStorage.removeItem('chat_avatar');
             window.location.href = window.location.pathname + window.location.search;
         }
 
@@ -1037,11 +1080,34 @@
             if (e.key === 'Escape') closeAllModals();
         });
 
-        function boot() {
+        async function boot() {
             buildEmojiPicker();
-            currentUser = localStorage.getItem('chat_username') || '';
+            
+            // Check for existing session
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session?.user) {
+                currentUser = session.user.email.split('@')[0];
+                localStorage.setItem('chat_username', currentUser);
+                showApp();
+            } else {
+                showAuth();
+                getEl('email-input').focus();
+            }
 
-            getEl('auth-form').addEventListener('submit', handleAuth);
+            // Listen for auth state changes
+            supabaseClient.auth.onAuthStateChange(async (event, session) => {
+                if (session?.user) {
+                    currentUser = session.user.email.split('@')[0];
+                    localStorage.setItem('chat_username', currentUser);
+                    showApp();
+                } else {
+                    showAuth();
+                }
+            });
+
+            // Add event listeners
+            getEl('auth-form').addEventListener('submit', signIn);
+            getEl('signup-btn').addEventListener('click', signUp);
             getEl('message-form').addEventListener('submit', sendMessage);
             getEl('logout-btn').addEventListener('click', logout);
             getEl('back-btn').addEventListener('click', backToSidebar);
@@ -1072,9 +1138,6 @@
             getEl('settings-modal').addEventListener('click', (e) => { if (e.target === getEl('settings-modal')) closeSettings(); });
             getEl('group-modal').addEventListener('click', (e) => { if (e.target === getEl('group-modal')) closeGroupModal(); });
             getEl('members-modal').addEventListener('click', (e) => { if (e.target === getEl('members-modal')) closeMembersModal(); });
-
-            if (currentUser) showApp();
-            else { showAuth(); getEl('username-input').focus(); }
         }
 
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
