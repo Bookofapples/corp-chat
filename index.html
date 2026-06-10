@@ -57,23 +57,53 @@
                     <span class="material-icons text-white text-3xl">forum</span>
                 </div>
                 <h1 class="text-2xl font-bold text-white tracking-tight">Корпоративный чат</h1>
-                <p class="text-slate-400 mt-2 text-sm">Войдите или зарегистрируйтесь</p>
             </div>
-            <form id="auth-form" class="bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-2xl">
+
+            <!-- Форма входа -->
+            <div id="login-section" class="bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-2xl">
+                <p class="text-slate-400 mb-4 text-sm text-center">Войдите в свой аккаунт</p>
                 <div id="email-confirmation" class="hidden mb-4 p-4 bg-emerald-900/50 border border-emerald-700/50 rounded-xl text-emerald-200 text-sm">
-                    На вашу почту отправлено письмо. Пожалуйста, подтвердите аккаунт перед входом
+                    На вашу почту отправлено письмо. Пожалуйста, подтвердите аккаунт перед входом!
                 </div>
-                <label for="email-input" class="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">Email</label>
-                <input type="email" id="email-input" required placeholder="user@example.com"
-                    class="w-full px-4 py-3 bg-slate-900/80 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500 mb-4">
-                <label for="password-input" class="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">Пароль</label>
-                <input type="password" id="password-input" required minlength="6" placeholder="••••••••"
-                    class="w-full px-4 py-3 bg-slate-900/80 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500 mb-4">
-                <div class="flex gap-3">
-                    <button type="submit" id="signin-btn" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-all shadow-lg active:scale-[0.98]">Войти</button>
-                    <button type="button" id="signup-btn" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-xl transition-all shadow-lg active:scale-[0.98]">Регистрация</button>
+                <form id="login-form">
+                    <label for="login-email" class="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">Email</label>
+                    <input type="email" id="login-email" required placeholder="user@example.com"
+                        class="w-full px-4 py-3 bg-slate-900/80 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500 mb-4">
+                    <label for="login-password" class="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">Пароль</label>
+                    <input type="password" id="login-password" required minlength="6" placeholder="••••••••"
+                        class="w-full px-4 py-3 bg-slate-900/80 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500 mb-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <label class="flex items-center gap-2 text-sm text-slate-300">
+                            <input type="checkbox" id="remember-me" class="w-4 h-4 rounded bg-slate-700 border-slate-600 text-blue-600 focus:ring-blue-500">
+                            <span>Запомнить меня</span>
+                        </label>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-all shadow-lg active:scale-[0.98]">Войти</button>
+                </form>
+                <div class="mt-4 text-center">
+                    <button id="to-signup" class="text-blue-400 hover:text-blue-300 text-sm">Нет аккаунта? Зарегистрироваться</button>
                 </div>
-            </form>
+            </div>
+
+            <!-- Форма регистрации -->
+            <div id="signup-section" class="hidden bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-2xl">
+                <p class="text-slate-400 mb-4 text-sm text-center">Создайте новый аккаунт</p>
+                <form id="signup-form">
+                    <label for="signup-name" class="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">Имя</label>
+                    <input type="text" id="signup-name" required minlength="2" maxlength="32" placeholder="Антон Иванов"
+                        class="w-full px-4 py-3 bg-slate-900/80 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500 mb-4">
+                    <label for="signup-email" class="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">Email</label>
+                    <input type="email" id="signup-email" required placeholder="user@example.com"
+                        class="w-full px-4 py-3 bg-slate-900/80 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500 mb-4">
+                    <label for="signup-password" class="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">Пароль</label>
+                    <input type="password" id="signup-password" required minlength="6" placeholder="••••••••"
+                        class="w-full px-4 py-3 bg-slate-900/80 border border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-white placeholder-slate-500 mb-4">
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-all shadow-lg active:scale-[0.98]">Создать аккаунт</button>
+                </form>
+                <div class="mt-4 text-center">
+                    <button id="to-login" class="text-blue-400 hover:text-blue-300 text-sm">Уже есть аккаунт? Войти</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -162,35 +192,41 @@
 
     <!-- Настройки -->
     <div id="settings-modal" class="fixed inset-0 z-[100] items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
-        <div id="settings-modal-box" class="w-full max-w-md rounded-2xl shadow-2xl border overflow-hidden bg-white border-slate-200">
-            <div id="settings-modal-header" class="px-6 py-4 border-b flex items-center justify-between bg-slate-50 border-slate-100">
+        <div id="settings-modal-box" class="w-full max-w-md rounded-2xl shadow-2xl border overflow-hidden bg-white border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div id="settings-modal-header" class="px-6 py-4 border-b flex items-center justify-between bg-slate-50 border-slate-100 sticky top-0 z-10">
                 <h2 id="settings-title" class="text-lg font-bold text-slate-800">Настройки профиля</h2>
                 <button type="button" id="modal-close-x" class="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100"><span class="material-icons">close</span></button>
             </div>
             <div class="p-6 space-y-5">
-                <div class="flex justify-center">
-                    <div id="settings-avatar-preview" class="w-20 h-20 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg overflow-hidden">U</div>
+                <div class="flex justify-center relative">
+                    <div id="settings-avatar-preview" class="w-24 h-24 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-3xl font-bold shadow-lg overflow-hidden cursor-pointer group">
+                    </div>
+                    <div class="absolute bottom-0 right-1/2 translate-x-1/2 translate-y-1/4 bg-blue-600 text-white rounded-full p-1.5 shadow-lg opacity-0 group-hover:opacity-100 transition-all">
+                        <span class="material-icons text-base">edit</span>
+                    </div>
+                    <input type="file" id="settings-avatar-file" accept="image/*" class="hidden">
                 </div>
                 <div>
                     <label for="settings-name" class="lbl-muted block text-xs font-medium mb-1.5 uppercase tracking-wider text-slate-400">Имя / Никнейм</label>
                     <input type="text" id="settings-name" maxlength="32" class="fld-input w-full px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 border border-slate-200 text-slate-800">
                 </div>
                 <div>
-                    <label for="settings-avatar-url" class="lbl-muted block text-xs font-medium mb-1.5 uppercase tracking-wider text-slate-400">Ссылка на фото</label>
-                    <input type="url" id="settings-avatar-url" placeholder="https://..." class="fld-input w-full px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 border border-slate-200 text-slate-800">
-                </div>
-                <div>
-                    <input type="file" id="settings-avatar-file" accept="image/*" class="hidden">
-                    <label id="avatar-upload-zone" for="settings-avatar-file"
-                        class="flex items-center justify-center gap-2 w-full py-4 px-4 rounded-xl border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50/50 transition-all text-sm font-medium text-slate-600 hover:text-blue-600">
-                        <span class="material-icons text-xl">cloud_upload</span>
-                        <span>Или загрузить файл с компьютера</span>
-                    </label>
+                    <label class="lbl-muted block text-xs font-medium mb-2 uppercase tracking-wider text-slate-400">Моя галерея</label>
+                    <div id="profile-gallery" class="grid grid-cols-4 gap-2">
+                    </div>
+                    <div class="mt-2">
+                        <input type="file" id="gallery-file" accept="image/*" multiple class="hidden">
+                        <button type="button" id="add-gallery-photo" class="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50/50 transition-all text-sm font-medium text-slate-600 hover:text-blue-600">
+                            <span class="material-icons text-base">add_photo_alternate</span>
+                            <span>Добавить фото</span>
+                        </button>
+                    </div>
                 </div>
             </div>
-            <div id="settings-modal-footer" class="px-6 py-4 border-t flex gap-3 bg-slate-50 border-slate-100">
-                <button type="button" id="modal-close-btn" class="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">Закрыть</button>
-                <button type="button" id="modal-save-btn" class="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white">Сохранить</button>
+            <div id="settings-modal-footer" class="px-6 py-4 border-t flex gap-3 bg-slate-50 border-slate-100 sticky bottom-0 z-10 flex-col gap-3">
+                <button type="button" id="modal-save-btn" class="w-full py-2.5 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white">Сохранить</button>
+                <button type="button" id="modal-close-btn" class="w-full py-2.5 rounded-xl text-sm font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">Закрыть</button>
+                <button type="button" id="delete-account-btn" class="w-full py-2.5 rounded-xl text-sm font-semibold bg-red-600 hover:bg-red-500 text-white">Удалить аккаунт</button>
             </div>
         </div>
     </div>
@@ -1022,35 +1058,122 @@
             closeSettings();
         }
 
-        async function signUp() {
-            const email = getEl('email-input').value.trim();
-            const password = getEl('password-input').value.trim();
-            if (!email || !password) return;
+        let currentProfile = null;
+        let allUsers = [];
+        let userGallery = [];
+
+        function toggleAuthSection(showSignup) {
+            getEl('login-section').classList.toggle('hidden', showSignup);
+            getEl('signup-section').classList.toggle('hidden', !showSignup);
+        }
+
+        async function signUp(e) {
+            if (e) e.preventDefault();
+            const name = getEl('signup-name').value.trim();
+            const email = getEl('signup-email').value.trim();
+            const password = getEl('signup-password').value.trim();
+            if (!name || !email || !password) return;
             
-            const { error } = await supabaseClient.auth.signUp({ email, password });
+            const { data, error } = await supabaseClient.auth.signUp({ email, password });
             if (error) {
                 console.error('Sign up error:', error);
                 alert(error.message);
-            } else {
+            } else if (data.user) {
+                // Save user data to profiles table
+                const { error: profileError } = await supabaseClient
+                    .from('profiles')
+                    .insert([{ id: data.user.id, username: name, email: email, avatar_url: '' }]);
+                
+                if (profileError) {
+                    console.error('Error saving profile:', profileError);
+                }
+                
+                // Show confirmation message
                 getEl('email-confirmation').classList.remove('hidden');
+                toggleAuthSection(false);
+            }
+        }
+
+        async function loadUserProfile(userId) {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', userId)
+                    .single();
+                
+                if (error) throw error;
+                
+                currentProfile = data;
+                currentUser = data.username;
+                avatarUrl = data.avatar_url || '';
+                localStorage.setItem('chat_username', currentUser);
+                localStorage.setItem('chat_avatar', avatarUrl);
+                updateUserDisplay();
+                renderChatList();
+            } catch (err) {
+                console.error('Error loading profile:', err);
             }
         }
 
         async function signIn(e) {
             if (e) e.preventDefault();
-            const email = getEl('email-input').value.trim();
-            const password = getEl('password-input').value.trim();
+            const email = getEl('login-email').value.trim();
+            const password = getEl('login-password').value.trim();
+            const rememberMe = getEl('remember-me').checked;
             if (!email || !password) return;
             
-            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ 
+                email, password 
+            }, {
+                rememberMe: rememberMe
+            });
+            
             if (error) {
                 console.error('Sign in error:', error);
                 alert(error.message);
             } else if (data.user) {
-                currentUser = data.user.email.split('@')[0];
-                localStorage.setItem('chat_username', currentUser);
+                await loadUserProfile(data.user.id);
+                await loadAllUsers();
                 showApp();
             }
+        }
+
+        async function loadAllUsers() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('profiles')
+                    .select('*')
+                    .order('username', { ascending: true });
+                
+                if (error) throw error;
+                
+                allUsers = data;
+                updateBaseChats();
+                renderChatList();
+            } catch (err) {
+                console.error('Error loading users:', err);
+            }
+        }
+
+        function updateBaseChats() {
+            BASE_CHATS.splice(1, BASE_CHATS.length - 4); // Keep general, bot, etc.
+            allUsers.forEach(user => {
+                if (user.id !== currentProfile?.id) {
+                    BASE_CHATS.push({
+                        id: `user-${user.id}`,
+                        name: user.username,
+                        subtitle: 'Пользователь',
+                        icon: 'person',
+                        color: 'bg-purple-600',
+                        searchable: user.username.toLowerCase(),
+                        type: 'personal',
+                        functional: false,
+                        unread: 0,
+                        avatar: user.avatar_url
+                    });
+                }
+            });
         }
 
         async function logout() {
@@ -1058,7 +1181,120 @@
             await supabaseClient.auth.signOut();
             localStorage.removeItem('chat_username');
             localStorage.removeItem('chat_avatar');
+            // Clear fields
+            getEl('login-email').value = '';
+            getEl('login-password').value = '';
+            getEl('signup-name').value = '';
+            getEl('signup-email').value = '';
+            getEl('signup-password').value = '';
             window.location.href = window.location.pathname + window.location.search;
+        }
+
+        async function handleAvatarFile(e) {
+            const file = e.target.files[0];
+            // Reset input value immediately to allow selecting the same file again
+            e.target.value = '';
+            if (!file || !file.type.startsWith('image/') || !currentProfile) return;
+            
+            const uploadedUrl = await uploadAvatarToSupabase(file);
+            if (uploadedUrl) {
+                // Update local state
+                avatarUrl = uploadedUrl;
+                // Update database
+                const { error } = await supabaseClient
+                    .from('profiles')
+                    .update({ avatar_url: uploadedUrl })
+                    .eq('id', currentProfile.id);
+                
+                if (error) {
+                    console.error('Error updating avatar:', error);
+                } else {
+                    // Update UI
+                    setAvatarFromUrl(avatarUrl);
+                    localStorage.setItem('chat_avatar', avatarUrl);
+                }
+            }
+        }
+
+        async function uploadAvatarToSupabase(file) {
+            if (!isProdMode || !supabaseClient) {
+                return '';
+            }
+            try {
+                // Extract file extension safely
+                const ext = file.name.split('.').pop();
+                // Generate completely safe filename
+                const fileName = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+                const { error: uploadError } = await supabaseClient
+                    .storage
+                    .from('avatars')
+                    .upload(fileName, file, {
+                        cacheControl: '3600',
+                        upsert: false
+                    });
+                if (uploadError) {
+                    console.error('Upload error:', uploadError);
+                    return '';
+                }
+                const { data: { publicUrl } } = supabaseClient
+                    .storage
+                    .from('avatars')
+                    .getPublicUrl(fileName);
+                return publicUrl;
+            } catch (error) {
+                console.error('Avatar upload error:', error);
+                return '';
+            }
+        }
+
+        function openSettings() {
+            closeAllModals();
+            getEl('settings-name').value = currentProfile?.username || currentUser || '';
+            renderAvatar(getEl('settings-avatar-preview'), currentUser);
+            renderProfileGallery();
+            getEl('settings-modal').classList.add('is-open');
+        }
+
+        async function saveSettings() {
+            const name = getEl('settings-name').value.trim();
+            if (name.length >= 2 && currentProfile) {
+                const oldName = currentUser;
+                currentUser = name;
+                currentProfile.username = name;
+                localStorage.setItem('chat_username', name);
+                
+                // Update database
+                const { error } = await supabaseClient
+                    .from('profiles')
+                    .update({ username: name })
+                    .eq('id', currentProfile.id);
+                
+                if (error) {
+                    console.error('Error updating profile:', error);
+                }
+                
+                updateUserDisplay();
+                renderChatList();
+                renderMessages();
+            }
+            closeSettings();
+        }
+
+        function deleteAccount() {
+            if (confirm('Вы уверены, что хотите удалить свой аккаунт? Это действие нельзя отменить!')) {
+                logout();
+                alert('Запрос на удаление отправлен. Администратор удалит ваш аккаунт из базы данных');
+            }
+        }
+
+        function renderProfileGallery() {
+            const gallery = getEl('profile-gallery');
+            // For now, show placeholder items
+            gallery.innerHTML = Array(8).fill(0).map((_, i) => `
+                <div class="w-full aspect-square rounded-lg bg-slate-200 flex items-center justify-center overflow-hidden">
+                    <span class="material-icons text-slate-400 text-lg">image</span>
+                </div>
+            `).join('');
         }
 
         window.addEventListener('resize', () => {
@@ -1086,28 +1322,32 @@
             // Check for existing session
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session?.user) {
-                currentUser = session.user.email.split('@')[0];
-                localStorage.setItem('chat_username', currentUser);
+                await loadUserProfile(session.user.id);
+                await loadAllUsers();
                 showApp();
             } else {
                 showAuth();
-                getEl('email-input').focus();
+                getEl('login-email').focus();
             }
 
             // Listen for auth state changes
             supabaseClient.auth.onAuthStateChange(async (event, session) => {
                 if (session?.user) {
-                    currentUser = session.user.email.split('@')[0];
-                    localStorage.setItem('chat_username', currentUser);
+                    await loadUserProfile(session.user.id);
+                    await loadAllUsers();
                     showApp();
                 } else {
                     showAuth();
                 }
             });
 
-            // Add event listeners
-            getEl('auth-form').addEventListener('submit', signIn);
-            getEl('signup-btn').addEventListener('click', signUp);
+            // Add event listeners for auth
+            getEl('login-form').addEventListener('submit', signIn);
+            getEl('signup-form').addEventListener('submit', signUp);
+            getEl('to-signup').addEventListener('click', () => toggleAuthSection(true));
+            getEl('to-login').addEventListener('click', () => toggleAuthSection(false));
+            
+            // Add event listeners for app
             getEl('message-form').addEventListener('submit', sendMessage);
             getEl('logout-btn').addEventListener('click', logout);
             getEl('back-btn').addEventListener('click', backToSidebar);
@@ -1116,7 +1356,10 @@
             getEl('modal-close-btn').addEventListener('click', closeSettings);
             getEl('modal-close-x').addEventListener('click', closeSettings);
             getEl('modal-save-btn').addEventListener('click', saveSettings);
+            getEl('delete-account-btn').addEventListener('click', deleteAccount);
             getEl('settings-avatar-file').addEventListener('change', handleAvatarFile);
+            getEl('settings-avatar-preview').addEventListener('click', () => getEl('settings-avatar-file').click());
+            getEl('add-gallery-photo').addEventListener('click', () => getEl('gallery-file').click());
             getEl('emoji-btn').addEventListener('click', (e) => { e.stopPropagation(); toggleEmojiPicker(); });
             getEl('attach-btn').addEventListener('click', () => getEl('file-input').click());
             getEl('file-input').addEventListener('change', onFileSelected);
