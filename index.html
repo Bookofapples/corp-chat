@@ -448,7 +448,7 @@
 
         function renderAvatar(el, name) {
             if (avatarUrl) {
-                const cacheBust = `?t=${Date.now()}`;
+                const cacheBust = `?cacheBust=${new Date().getTime()}`;
                 const safeUrl = avatarUrl.replace(/"/g, '&quot;') + cacheBust;
                 el.innerHTML = `<img src="${safeUrl}" alt="" class="w-full h-full object-cover">`;
             } else {
