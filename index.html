@@ -448,7 +448,9 @@
 
         function renderAvatar(el, name) {
             if (avatarUrl) {
-                el.innerHTML = `<img src="${avatarUrl.replace(/"/g, '&quot;')}" alt="" class="w-full h-full object-cover">`;
+                const cacheBust = `?t=${Date.now()}`;
+                const safeUrl = avatarUrl.replace(/"/g, '&quot;') + cacheBust;
+                el.innerHTML = `<img src="${safeUrl}" alt="" class="w-full h-full object-cover">`;
             } else {
                 el.innerHTML = '';
                 el.textContent = (name || currentUser).substring(0, 2).toUpperCase();
