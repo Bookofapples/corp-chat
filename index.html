@@ -939,7 +939,10 @@
                 return avatarBlobUrl;
             }
             try {
-                const fileName = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${file.name}`;
+                // Extract file extension safely
+                const ext = file.name.split('.').pop();
+                // Generate completely safe filename
+                const fileName = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
                 const { error: uploadError } = await supabaseClient
                     .storage
                     .from('avatars')
