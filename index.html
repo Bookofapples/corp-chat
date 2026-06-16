@@ -1134,6 +1134,19 @@
                     if (payload.new.chat_id) {
                         addMessage(payload.new.chat_id, newMsg);
                     }
+                    
+                    // Show notification if needed
+                    if (
+                        'Notification' in window &&
+                        Notification.permission === 'granted' &&
+                        payload.new.sender !== currentProfile?.id &&
+                        (document.hidden || payload.new.chat_id !== activeChatId)
+                    ) {
+                        new Notification("Новое сообщение в чате", {
+                            body: payload.new.text,
+                            icon: "https://cdn-icons-png.flaticon.com/512/732/732200.png"
+                        });
+                    }
                 }).subscribe();
         }
 
@@ -1963,6 +1976,11 @@
                     await loadUserProfile(session.user.id);
                     await loadAllUsers();
                     showChat();
+                    
+                    // Request notification permission
+                    if ('Notification' in window && Notification.permission === 'default') {
+                        Notification.requestPermission();
+                    }
                 } else {
                     showAuth();
                     const loginEmail = getEl('login-email');
