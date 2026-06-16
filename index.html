@@ -1991,6 +1991,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if ('Notification' in window && Notification.permission === 'default') {
                         Notification.requestPermission();
                     }
+                    
+                    // Register simple Service Worker for iOS PWA background notifications
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.register('data:text/javascript,console.log("Service Worker Active");', { scope: '/' })
+                        .then(() => console.log('Service Worker успешно зарегистрирован для iOS'))
+                        .catch(err => console.error('Ошибка SW:', err));
+                    }
                 } else {
                     showAuth();
                     const loginEmail = getEl('login-email');
