@@ -1072,19 +1072,19 @@
             const userMap = new Map(allUsers.map(u => [u.id, u.username]));
             
             // Load general messages (chat_id = 'general')
-           const { data: generalData, error: generalError } = await supabaseClient
-            .from('messages')
-            .select('id, text, sender, created_at') // Заменили sender на sender
-            .eq('chat_id', 'general')
-            .order('id', { ascending: true })
-            .limit(100);
+            const { data: generalData, error: generalError } = await supabaseClient
+                .from('messages')
+                .select('id, text, sender_id, created_at')
+                .eq('chat_id', 'general')
+                .order('id', { ascending: true })
+                .limit(100);
             if (generalError) {
                 chatMessages.general = [{ id: 'err-0', text: 'Не удалось загрузить сообщения.', sender: 'Система', time: new Date().toISOString(), type: 'text' }];
             } else {
                 chatMessages.general = (generalData || []).map(m => ({ 
                     ...m, 
                     text: m.text, 
-                    sender: userMap.get(m.sender) || 'Пользователь', 
+                    sender: userMap.get(m.sender_id) || 'Пользователь', 
                     time: m.created_at, 
                     type: 'text' 
                 }));
@@ -1097,7 +1097,7 @@
                 if (!chatMessages[chatId]) chatMessages[chatId] = [];
                 
                 const { data: personalData, error: personalError } = await supabaseClient.from('messages')
-                    .select('id, text, sender, created_at, chat_id')
+                    .select('id, text, sender_id, created_at, chat_id')
                     .eq('chat_id', chatId)
                     .order('id', { ascending: true });
                 
@@ -1105,7 +1105,7 @@
                     chatMessages[chatId] = personalData.map(m => ({ 
                         ...m, 
                         text: m.text, 
-                        sender: userMap.get(m.sender) || 'Пользователь', 
+                        sender: userMap.get(m.sender_id) || 'Пользователь', 
                         time: m.created_at, 
                         type: 'text' 
                     }));
@@ -1118,7 +1118,7 @@
                     const newMsg = { 
                         ...payload.new, 
                         text: payload.new.text, 
-                        sender: userMap.get(payload.new.sender) || 'Пользователь', 
+                        sender: userMap.get(payload.new.sender_id) || 'Пользователь', 
                         time: payload.new.created_at, 
                         type: 'text' 
                     };
@@ -1131,43 +1131,51 @@
         }
 
         async function sendMessage(e) {
-            e.preventDefault();
+            if (e) e.preventDefault();
+            
             const chat = getChat(activeChatId);
-            if (!chat.functional) return;
+            if (chat && !chat.functional) return;
+            
             const input = getEl('message-input');
             const text = input ? input.value.trim() : '';
             if (!text) return;
+            
             if (input) input.value = '';
-            closeEmojiPicker();
+            if (typeof closeEmojiPicker === 'function') closeEmojiPicker();
             
-            // Убрали демо-режим. Теперь сразу формируем payload для реальной базы Supabase:
-            let insertPayload = {
-                "text": text,
-                "sender": currentUser.id, // строго ID пользователя
-                "chat_id": activeChatId
+            // 1. Отрисовка на экране для мгновенного отклика интерфейса
+            const msg = {
+                id: Date.now(),
+                text: text,
+                sender: currentUser,
+                time: new Date().toISOString(),
+                readStatus: 0,
+                type: 'text'
             };
+            if (typeof addMessage === 'function') {
+                addMessage(activeChatId, msg, true);
+            }
 
-            // Отправляем в реальную таблицу messages
-            const { error } = await supabaseClient.from('messages').insert([insertPayload]);
-            
-            if (error) {
-                console.error("Ошибка отправки в Supabase:", error);
-                alert("Не удалось отправить сообщение в базу данных.");
-            } else {
-                // Если в коде ниже вызывается локальное добавление или обновление, оставь его, 
-                // либо, если есть функция loadMessages(), можно вызвать её:
-                if (typeof loadMessages === 'function') await loadMessages();
+            if (!isProdMode && activeChatId === 'general') {
+                triggerDemoReply();
             }
+
+            // 2. Отправка payload в реальную таблицу messages в Supabase
+            if (currentProfile && currentProfile.id) {
+                let insertPayload = {
+                    "text": text,
+                    "sender_id": currentProfile.id,
+                    "chat_id": activeChatId
+                };
+
+                const { error } = await supabaseClient.from('messages').insert([insertPayload]);
+                
+                if (error) {
+                    console.error("Ошибка сохранения в Supabase:", error);
+                } else {
+                    console.log("Сообщение успешно улетело в базу!");
+                }
             }
-            
-            addMessage(activeChatId, msg, true);
-            
-           const { data: generalData, error: generalError } = await supabaseClient
-            .from('messages')
-            .select('id, text, sender, created_at') // Заменили sender на sender
-            .eq('chat_id', 'general')
-            .order('id', { ascending: true })
-            .limit(100);
         }
 
         function onFileSelected(e) {
