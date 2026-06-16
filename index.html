@@ -367,6 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let realtimeChannel = null;
         let presenceChannel = null;
         let onlineUsers = new Set();
+        let localNamesMap = {}; // map of user id to local custom name
         let chatOpenOnMobile = false;
         let activeChatId = 'general';
         let activeTab = 'all';
@@ -437,6 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('chat_custom_groups', JSON.stringify(customGroups));
             localStorage.setItem('chat_messages_data', JSON.stringify(chatMessages));
             localStorage.setItem('chat_members_data', JSON.stringify(chatMembers));
+            localStorage.setItem('chat_local_names', JSON.stringify(localNamesMap));
         }
 
         function loadCustomData() {
@@ -445,10 +447,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 chatMessages = { ...JSON.parse(localStorage.getItem('chat_messages_data') || '{}') };
                 const savedMembers = JSON.parse(localStorage.getItem('chat_members_data') || '{}');
                 chatMembers = { ...savedMembers };
+                localNamesMap = JSON.parse(localStorage.getItem('chat_local_names') || '{}');
             } catch {
                 customGroups = [];
                 chatMessages = {};
                 chatMembers = {};
+                localNamesMap = {};
             }
             if (chatMembers.general) {
                 const self = chatMembers.general.find(m => m.id === 'self');
@@ -1187,16 +1191,73 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typingTimer) { clearTimeout(typingTimer); typingTimer = null; }
         }
 
-        async function initMessenger() {
-            if (realtimeChannel && supabaseClient) {
+        async function initRealtimeChannels() {
+            // Clean up existing channels first
+            if (realtimeChannel) {
                 await supabaseClient.removeChannel(realtimeChannel);
                 realtimeChannel = null;
             }
-            if (presenceChannel && supabaseClient) {
+            if (presenceChannel) {
                 await supabaseClient.removeChannel(presenceChannel);
                 presenceChannel = null;
             }
-            
+
+            // Initialize messages channel
+            realtimeChannel = supabaseClient.channel('public:messages');
+            realtimeChannel
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+                    const userMap = new Map(allUsers.map(u => [u.id, u.username]));
+                    const newMsg = { 
+                        ...payload.new, 
+                        text: payload.new.text, 
+                        sender: userMap.get(payload.new.sender) || 'Пользователь', 
+                        time: payload.new.created_at, 
+                        type: 'text' 
+                    };
+                    
+                    // Add to correct chat
+                    if (payload.new.chat_id) {
+                        addMessage(payload.new.chat_id, newMsg);
+                    }
+                    
+                    // Show notification if needed
+                    if (
+                        'Notification' in window &&
+                        Notification.permission === 'granted' &&
+                        payload.new.sender !== currentProfile?.id &&
+                        (document.hidden || payload.new.chat_id !== activeChatId)
+                    ) {
+                        new Notification("Новое сообщение в чате", {
+                            body: payload.new.text,
+                            icon: "https://cdn-icons-png.flaticon.com/512/732/732200.png"
+                        });
+                    }
+                });
+            await realtimeChannel.subscribe();
+
+            // Initialize presence channel if logged in
+            if (currentProfile?.id) {
+                presenceChannel = supabaseClient.channel('online-users', {
+                    config: { presence: { key: currentProfile.id } }
+                });
+
+                presenceChannel
+                    .on('presence', { event: 'sync' }, () => {
+                        const newState = presenceChannel.presenceState();
+                        updateUsersOnlineStatus(newState);
+                    });
+                await presenceChannel.subscribe(async (status) => {
+                    if (status === 'SUBSCRIBED') {
+                        await presenceChannel.track({
+                            online_at: new Date().toISOString(),
+                            user_id: currentProfile.id
+                        });
+                    }
+                });
+            }
+        }
+
+        async function initMessenger() {
             // Create a user map for quick lookups
             const userMap = new Map(allUsers.map(u => [u.id, u.username]));
             
@@ -1241,56 +1302,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            realtimeChannel = supabaseClient.channel('public:messages')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-                    const userMap = new Map(allUsers.map(u => [u.id, u.username]));
-                    const newMsg = { 
-                        ...payload.new, 
-                        text: payload.new.text, 
-                        sender: userMap.get(payload.new.sender) || 'Пользователь', 
-                        time: payload.new.created_at, 
-                        type: 'text' 
-                    };
-                    
-                    // Add to correct chat
-                    if (payload.new.chat_id) {
-                        addMessage(payload.new.chat_id, newMsg);
-                    }
-                    
-                    // Show notification if needed
-                    if (
-                        'Notification' in window &&
-                        Notification.permission === 'granted' &&
-                        payload.new.sender !== currentProfile?.id &&
-                        (document.hidden || payload.new.chat_id !== activeChatId)
-                    ) {
-                        new Notification("Новое сообщение в чате", {
-                            body: payload.new.text,
-                            icon: "https://cdn-icons-png.flaticon.com/512/732/732200.png"
-                        });
-                    }
-                }).subscribe();
-
-            // Set up presence channel for online/offline status
-            if (currentProfile?.id) {
-                presenceChannel = supabaseClient.channel('online-users', {
-                    config: { presence: { key: currentProfile.id } }
-                });
-
-                presenceChannel
-                    .on('presence', { event: 'sync' }, () => {
-                        const newState = presenceChannel.presenceState();
-                        updateUsersOnlineStatus(newState);
-                    })
-                    .subscribe(async (status) => {
-                        if (status === 'SUBSCRIBED') {
-                            await presenceChannel.track({
-                                online_at: new Date().toISOString(),
-                                user_id: currentProfile.id
-                            });
-                        }
-                    });
-            }
+            // Initialize realtime and presence channels
+            await initRealtimeChannels();
         }
 
         async function sendMessage(e) {
@@ -1644,8 +1657,11 @@ document.addEventListener('DOMContentLoaded', () => {
             
             allUsers.forEach(user => {
                 if (user.id !== currentProfile?.id) {
-                    // Determine display name
-                    let displayName = user.username;
+                    // Determine display name - check local names first
+                    let displayName = localNamesMap[user.id];
+                    if (!displayName) {
+                        displayName = user.username;
+                    }
                     if (!displayName || displayName.trim() === '') {
                         displayName = 'Пользователь без имени';
                     }
@@ -1965,8 +1981,11 @@ document.addEventListener('DOMContentLoaded', () => {
             
             allUsers.forEach(user => {
                 if (user.id !== currentProfile?.id) {
-                    // Determine display name
-                    let displayName = user.username;
+                    // Determine display name - check local names first
+                    let displayName = localNamesMap[user.id];
+                    if (!displayName) {
+                        displayName = user.username;
+                    }
                     if (!displayName || displayName.trim() === '') {
                         displayName = 'Пользователь без имени';
                     }
@@ -2128,13 +2147,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if ('Notification' in window && Notification.permission === 'default') {
                         Notification.requestPermission();
                     }
-                    
-                    // Register simple Service Worker for iOS PWA background notifications
-                    if ('serviceWorker' in navigator) {
-                        navigator.serviceWorker.register('data:text/javascript,console.log("Service Worker Active");', { scope: '/' })
-                        .then(() => console.log('Service Worker успешно зарегистрирован для iOS'))
-                        .catch(err => console.error('Ошибка SW:', err));
-                    }
                 } else {
                     showAuth();
                     const loginEmail = getEl('login-email');
@@ -2192,6 +2204,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if (fileInput) fileInput.addEventListener('change', onFileSelected);
             const searchInput = getEl('search-input');
             if (searchInput) searchInput.addEventListener('input', (e) => { searchQuery = e.target.value; renderChatList(); });
+            const chatTitleEl = getEl('chat-title');
+            if (chatTitleEl) chatTitleEl.addEventListener('click', () => {
+                // Only allow renaming for personal chats
+                const chat = getChat(activeChatId);
+                if (chat && chat.userId && chat.id !== 'general') {
+                    const currentName = chat.name;
+                    const newName = prompt('Введите новое имя пользователя:', currentName);
+                    if (newName && newName.trim()) {
+                        localNamesMap[chat.userId] = newName.trim();
+                        saveCustomData();
+                        updateBaseChats();
+                        renderChatList();
+                        selectChat(activeChatId, false); // Refresh the chat header
+                    }
+                }
+            });
             const themeLightBtn = getEl('theme-light-btn');
             if (themeLightBtn) themeLightBtn.addEventListener('click', () => applyTheme('light'));
             const themeDarkBtn = getEl('theme-dark-btn');
@@ -2242,25 +2270,20 @@ document.addEventListener('DOMContentLoaded', () => {
         else boot();
         
         // iOS background reconnection: refresh when app becomes visible or focused
-        document.addEventListener('visibilitychange', () => {
+        document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState === 'visible') {
                 console.log('Приложение вышло из фона, обновляем соединение...');
-                // Принудительно перезапускаем подписку Supabase
-                if (typeof supabaseClient !== 'undefined') {
-                    // Reload all messages and reconnect realtime
-                    if (typeof initMessenger === 'function') {
-                        initMessenger();
-                    }
+                if (typeof supabaseClient !== 'undefined' && typeof initRealtimeChannels === 'function') {
+                    // Reconnect channels
+                    await initRealtimeChannels();
                 }
             }
         });
         
-        window.addEventListener('focus', () => {
+        window.addEventListener('focus', async () => {
             console.log('Приложение в фокусе, обновляем соединение...');
-            if (typeof supabaseClient !== 'undefined') {
-                if (typeof initMessenger === 'function') {
-                    initMessenger();
-                }
+            if (typeof supabaseClient !== 'undefined' && typeof initRealtimeChannels === 'function') {
+                await initRealtimeChannels();
             }
         });
     </script>
