@@ -1128,15 +1128,13 @@
             
             addMessage(activeChatId, msg, true);
             
-         let insertPayload = {
-            "текст": text,
-            "отправитель": currentUser.id,
+        let insertPayload = {
+            "text": text,
+            "sender_id": currentUser.id,
             "chat_id": activeChatId
         };
 
         const { error } = await supabaseClient.from('messages').insert([insertPayload]);
-            if (error) addMessage(activeChatId, { id: 'err-' + Date.now(), text: 'Не удалось отправить.', sender: 'Система', time: new Date().toISOString(), type: 'text' });
-        }
 
         function onFileSelected(e) {
             const file = e.target.files[0];
