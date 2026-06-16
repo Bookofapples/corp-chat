@@ -1320,33 +1320,41 @@
 
         async function loadUserProfile(userId) {
             try {
-                // First, try to get existing profile (without .single())
-                let { data, error } = await supabaseClient
+                // Step 1: Load profile with specific columns only
+                const { data, error } = await supabaseClient
                     .from('profiles')
-                    .select('*')
+                    .select('username, avatar_url')
                     .eq('id', userId);
 
-                if (error) throw error;
-
-                let profile = data?.[0];
-
-                // If no profile exists, create a new one!
-                if (!profile) {
-                    const { data: newProfileData, error: insertError } = await supabaseClient
-                        .from('profiles')
-                        .insert([{ id: userId, username: '', avatar_url: '' }])
-                        .select('*')
-                        .single();
-
-                    if (insertError) throw insertError;
-                    profile = newProfileData;
+                if (error) {
+                    throw error;
                 }
 
-                currentProfile = profile;
-                currentUser = profile.username || '';
-                avatarUrl = profile.avatar_url || '';
+                // Step 2: Check if profile exists
+                let profile = data?.[0];
+
+                if (!profile) {
+                    // Insert new empty profile
+                    await supabaseClient
+                        .from('profiles')
+                        .insert({ id: userId, username: '', avatar_url: '' });
+                    
+                    // Set default values
+                    currentProfile = { id: userId, username: '', avatar_url: '' };
+                    currentUser = '';
+                    avatarUrl = '';
+                } else {
+                    // Load existing profile
+                    currentProfile = { id: userId, ...profile };
+                    currentUser = profile.username || '';
+                    avatarUrl = profile.avatar_url || '';
+                }
+
+                // Save to localStorage
                 localStorage.setItem('chat_username', currentUser);
                 localStorage.setItem('chat_avatar', avatarUrl);
+
+                // Update UI with strict null checks
                 updateUserDisplay();
                 renderChatList();
             } catch (err) {
@@ -1525,18 +1533,31 @@
         }
 
         window.addEventListener('resize', () => {
-            if (getEl('app-screen').classList.contains('is-hidden')) return;
+            const appScreen = getEl('app-screen');
+            if (!appScreen) return;
+            if (appScreen.classList.contains('is-hidden')) return;
+            const sidebar = getEl('sidebar');
+            const chatWindow = getEl('chat-window');
+            if (!sidebar || !chatWindow) return;
+            
             if (isMobile()) {
-                if (chatOpenOnMobile) { getEl('sidebar').classList.add('is-mobile-hidden'); getEl('chat-window').classList.remove('is-mobile-hidden'); }
+                if (chatOpenOnMobile) { 
+                    sidebar.classList.add('is-mobile-hidden'); 
+                    chatWindow.classList.remove('is-mobile-hidden'); 
+                }
                 else showSidebarOnly();
             } else {
-                getEl('sidebar').classList.remove('is-mobile-hidden');
-                getEl('chat-window').classList.remove('is-mobile-hidden');
+                sidebar.classList.remove('is-mobile-hidden');
+                chatWindow.classList.remove('is-mobile-hidden');
             }
         });
 
         document.addEventListener('click', (e) => {
-            if (!getEl('emoji-picker').contains(e.target) && !getEl('emoji-btn').contains(e.target)) closeEmojiPicker();
+            const emojiPicker = getEl('emoji-picker');
+            const emojiBtn = getEl('emoji-btn');
+            if (emojiPicker && emojiBtn && !emojiPicker.contains(e.target) && !emojiBtn.contains(e.target)) {
+                closeEmojiPicker();
+            }
         });
 
         document.addEventListener('keydown', (e) => {
@@ -1601,33 +1622,41 @@
 
         async function loadUserProfile(userId) {
             try {
-                // First, try to get existing profile (without .single())
-                let { data, error } = await supabaseClient
+                // Step 1: Load profile with specific columns only
+                const { data, error } = await supabaseClient
                     .from('profiles')
-                    .select('*')
+                    .select('username, avatar_url')
                     .eq('id', userId);
 
-                if (error) throw error;
-
-                let profile = data?.[0];
-
-                // If no profile exists, create a new one!
-                if (!profile) {
-                    const { data: newProfileData, error: insertError } = await supabaseClient
-                        .from('profiles')
-                        .insert([{ id: userId, username: '', avatar_url: '' }])
-                        .select('*')
-                        .single();
-
-                    if (insertError) throw insertError;
-                    profile = newProfileData;
+                if (error) {
+                    throw error;
                 }
 
-                currentProfile = profile;
-                currentUser = profile.username || '';
-                avatarUrl = profile.avatar_url || '';
+                // Step 2: Check if profile exists
+                let profile = data?.[0];
+
+                if (!profile) {
+                    // Insert new empty profile
+                    await supabaseClient
+                        .from('profiles')
+                        .insert({ id: userId, username: '', avatar_url: '' });
+                    
+                    // Set default values
+                    currentProfile = { id: userId, username: '', avatar_url: '' };
+                    currentUser = '';
+                    avatarUrl = '';
+                } else {
+                    // Load existing profile
+                    currentProfile = { id: userId, ...profile };
+                    currentUser = profile.username || '';
+                    avatarUrl = profile.avatar_url || '';
+                }
+
+                // Save to localStorage
                 localStorage.setItem('chat_username', currentUser);
                 localStorage.setItem('chat_avatar', avatarUrl);
+
+                // Update UI with strict null checks
                 updateUserDisplay();
                 renderChatList();
             } catch (err) {
@@ -1764,11 +1793,17 @@
         function openSettings() {
             closeAllModals();
             const settingsName = getEl('settings-name');
-            if (settingsName) settingsName.value = currentProfile?.username || currentUser || '';
+            if (settingsName) {
+                settingsName.value = currentProfile?.username || currentUser || '';
+            }
             const settingsAvatarPreview = getEl('settings-avatar-preview');
-            if (settingsAvatarPreview) renderAvatar(settingsAvatarPreview, currentUser);
+            if (settingsAvatarPreview) {
+                renderAvatar(settingsAvatarPreview, currentUser);
+            }
             const settingsModal = getEl('settings-modal');
-            if (settingsModal) settingsModal.classList.add('is-open');
+            if (settingsModal) {
+                settingsModal.classList.add('is-open');
+            }
         }
 
         async function saveSettings() {
