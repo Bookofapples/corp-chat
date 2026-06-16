@@ -155,9 +155,11 @@
 
                 <div id="sidebar-footer" class="p-3 border-t shrink-0 bg-slate-50 border-slate-100">
                     <p id="theme-label" class="text-[10px] font-semibold uppercase tracking-widest px-1 mb-2 text-slate-400">Оформление</p>
-                    <div class="flex gap-2">
-                        <button type="button" id="theme-light-btn" class="flex-1 py-2 px-3 rounded-xl text-xs font-semibold ring-2 ring-blue-500 bg-slate-100 text-slate-600">Светлая тема</button>
-                        <button type="button" id="theme-dark-btn" class="flex-1 py-2 px-3 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600">Темная тема</button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" id="theme-light-btn" class="py-2 px-3 rounded-xl text-xs font-semibold ring-2 ring-blue-500 bg-slate-100 text-slate-600">Light</button>
+                        <button type="button" id="theme-dark-btn" class="py-2 px-3 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600">Dark</button>
+                        <button type="button" id="theme-seaside-btn" class="py-2 px-3 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600">Seaside</button>
+                        <button type="button" id="theme-sunset-btn" class="py-2 px-3 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600">Sunset</button>
                     </div>
                 </div>
             </div>
@@ -341,6 +343,36 @@
                 uploadZone: 'border-slate-600 hover:border-blue-500 hover:bg-slate-800 text-slate-300 hover:text-blue-400',
                 addPanel: 'bg-slate-900/60 border-slate-700',
             },
+            seaside: {
+                sidebar: 'bg-teal-50 border-teal-200', sidebarHeader: 'bg-teal-100 border-teal-200', sidebarFooter: 'bg-teal-100 border-teal-200',
+                chatHeader: 'bg-white border-teal-200', chatBg: 'bg-teal-50', inputPanel: 'bg-white border-teal-200',
+                input: 'bg-teal-50 border border-teal-200 text-teal-900 placeholder-teal-400',
+                search: 'bg-teal-100 border border-teal-200 text-teal-900 placeholder-teal-400', searchIcon: 'text-teal-500',
+                textPrimary: 'text-teal-900', textMuted: 'text-teal-600',
+                iconBtn: 'text-teal-600 hover:text-teal-700 hover:bg-teal-100', toggleBtn: 'bg-teal-100 text-teal-800 hover:bg-teal-200',
+                tabActive: 'ring-2 ring-teal-500 bg-teal-50 text-teal-700', tabInactive: 'bg-teal-100 text-teal-700 hover:bg-teal-200',
+                emojiPanel: 'bg-white border-teal-200', modal: 'bg-white border-teal-200', modalHeader: 'bg-teal-50 border-teal-200',
+                chatItem: 'hover:bg-teal-100', chatItemActive: 'bg-teal-50 ring-1 ring-teal-200',
+                bubbleOther: 'bg-white text-teal-900 border border-teal-200',
+                memberRow: 'bg-teal-50 border-teal-200', select: 'bg-white border-teal-200 text-teal-900',
+                uploadZone: 'border-teal-300 hover:border-teal-500 hover:bg-teal-50/50 text-teal-700 hover:text-teal-800',
+                addPanel: 'bg-teal-50 border-teal-200',
+            },
+            sunset: {
+                sidebar: 'bg-orange-50 border-orange-200', sidebarHeader: 'bg-orange-100 border-orange-200', sidebarFooter: 'bg-orange-100 border-orange-200',
+                chatHeader: 'bg-white border-orange-200', chatBg: 'bg-orange-50', inputPanel: 'bg-white border-orange-200',
+                input: 'bg-orange-50 border border-orange-200 text-orange-900 placeholder-orange-400',
+                search: 'bg-orange-100 border border-orange-200 text-orange-900 placeholder-orange-400', searchIcon: 'text-orange-500',
+                textPrimary: 'text-orange-900', textMuted: 'text-orange-600',
+                iconBtn: 'text-orange-600 hover:text-orange-700 hover:bg-orange-100', toggleBtn: 'bg-orange-100 text-orange-800 hover:bg-orange-200',
+                tabActive: 'ring-2 ring-orange-500 bg-orange-50 text-orange-700', tabInactive: 'bg-orange-100 text-orange-700 hover:bg-orange-200',
+                emojiPanel: 'bg-white border-orange-200', modal: 'bg-white border-orange-200', modalHeader: 'bg-orange-50 border-orange-200',
+                chatItem: 'hover:bg-orange-100', chatItemActive: 'bg-orange-50 ring-1 ring-orange-200',
+                bubbleOther: 'bg-white text-orange-900 border border-orange-200',
+                memberRow: 'bg-orange-50 border-orange-200', select: 'bg-white border-orange-200 text-orange-900',
+                uploadZone: 'border-orange-300 hover:border-orange-500 hover:bg-orange-50/50 text-orange-700 hover:text-orange-800',
+                addPanel: 'bg-orange-50 border-orange-200',
+            },
         };
 
         let currentUser = '';
@@ -438,7 +470,7 @@
         function applyTheme(t) {
             theme = t;
             localStorage.setItem('chat_theme', t);
-            getEl('app-screen').setAttribute('data-theme', t);
+            getEl('chat-container').setAttribute('data-theme', t);
             const c = THEME[t];
 
             getEl('sidebar').className = `w-full md:w-[340px] lg:w-[380px] shrink-0 flex flex-col h-full z-10 border-r transition-colors duration-300 ${c.sidebar}`;
@@ -485,8 +517,10 @@
             getEl('avatar-upload-zone').className = `flex items-center justify-center gap-2 w-full py-4 px-4 rounded-xl border-2 border-dashed transition-all text-sm font-medium ${c.uploadZone}`;
             getEl('add-member-panel').className = `mt-3 rounded-xl border p-2 space-y-1 ${c.addPanel}`;
 
-            getEl('theme-light-btn').className = `flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${c.toggleBtn}` + (t === 'light' ? ' ring-2 ring-blue-500' : '');
-            getEl('theme-dark-btn').className = `flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${c.toggleBtn}` + (t === 'dark' ? ' ring-2 ring-blue-500' : '');
+            getEl('theme-light-btn').className = `py-2 px-3 rounded-xl text-xs font-semibold transition-all ${c.toggleBtn}` + (t === 'light' ? ' ring-2 ring-blue-500' : '');
+            getEl('theme-dark-btn').className = `py-2 px-3 rounded-xl text-xs font-semibold transition-all ${c.toggleBtn}` + (t === 'dark' ? ' ring-2 ring-blue-500' : '');
+            getEl('theme-seaside-btn').className = `py-2 px-3 rounded-xl text-xs font-semibold transition-all ${c.toggleBtn}` + (t === 'seaside' ? ' ring-2 ring-teal-500' : '');
+            getEl('theme-sunset-btn').className = `py-2 px-3 rounded-xl text-xs font-semibold transition-all ${c.toggleBtn}` + (t === 'sunset' ? ' ring-2 ring-orange-500' : '');
             getEl('modal-close-btn').className = `flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${c.toggleBtn}`;
 
             document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1590,6 +1624,8 @@
             getEl('search-input').addEventListener('input', (e) => { searchQuery = e.target.value; renderChatList(); });
             getEl('theme-light-btn').addEventListener('click', () => applyTheme('light'));
             getEl('theme-dark-btn').addEventListener('click', () => applyTheme('dark'));
+            getEl('theme-seaside-btn').addEventListener('click', () => applyTheme('seaside'));
+            getEl('theme-sunset-btn').addEventListener('click', () => applyTheme('sunset'));
             getEl('create-group-btn').addEventListener('click', openGroupModal);
             getEl('group-form').addEventListener('submit', createGroup);
             getEl('group-modal-close-x').addEventListener('click', closeGroupModal);
