@@ -1068,12 +1068,21 @@
                 return;
             }
             
+            // Create a user map for quick lookups
+            const userMap = new Map(allUsers.map(u => [u.id, u.username]));
+            
             // Load general messages (chat_id = 'general')
-            const { data: generalData, error: generalError } = await supabaseClient.from('messages').select('id, текст, отправитель, created_at').eq('chat_id', 'general').order('id', { ascending: true }).limit(100);
+            const { data: generalData, error: generalError } = await supabaseClient.from('messages').select('id, text, sender_id, created_at').eq('chat_id', 'general').order('id', { ascending: true }).limit(100);
             if (generalError) {
                 chatMessages.general = [{ id: 'err-0', text: 'Не удалось загрузить сообщения.', sender: 'Система', time: new Date().toISOString(), type: 'text' }];
             } else {
-                chatMessages.general = (generalData || []).map(m => ({ ...m, text: m.текст, sender: m.отправитель, time: m.created_at, type: 'text' }));
+                chatMessages.general = (generalData || []).map(m => ({ 
+                    ...m, 
+                    text: m.text, 
+                    sender: userMap.get(m.sender_id) || 'Пользователь', 
+                    time: m.created_at, 
+                    type: 'text' 
+                }));
             }
             
             // Load personal messages for each user
@@ -1083,21 +1092,28 @@
                 if (!chatMessages[chatId]) chatMessages[chatId] = [];
                 
                 const { data: personalData, error: personalError } = await supabaseClient.from('messages')
-                    .select('id, текст, отправитель, created_at, chat_id')
+                    .select('id, text, sender_id, created_at, chat_id')
                     .eq('chat_id', chatId)
                     .order('id', { ascending: true });
                 
                 if (!personalError && personalData) {
-                    chatMessages[chatId] = personalData.map(m => ({ ...m, text: m.текст, sender: m.отправитель, time: m.created_at, type: 'text' }));
+                    chatMessages[chatId] = personalData.map(m => ({ 
+                        ...m, 
+                        text: m.text, 
+                        sender: userMap.get(m.sender_id) || 'Пользователь', 
+                        time: m.created_at, 
+                        type: 'text' 
+                    }));
                 }
             }
             
             realtimeChannel = supabaseClient.channel('public:messages')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+                    const userMap = new Map(allUsers.map(u => [u.id, u.username]));
                     const newMsg = { 
                         ...payload.new, 
-                        text: payload.new.текст, 
-                        sender: payload.new.отправитель, 
+                        text: payload.new.text, 
+                        sender: userMap.get(payload.new.sender_id) || 'Пользователь', 
                         time: payload.new.created_at, 
                         type: 'text' 
                     };
@@ -1128,13 +1144,13 @@
             
             addMessage(activeChatId, msg, true);
             
-        let insertPayload = {
-            "text": text,
-            "sender_id": currentUser.id,
-            "chat_id": activeChatId
-        };
+            let insertPayload = {
+                "text": text,
+                "sender_id": currentProfile.id,
+                "chat_id": activeChatId
+            };
 
-        const { error } = await supabaseClient.from('messages').insert([insertPayload]);
+            const { error } = await supabaseClient.from('messages').insert([insertPayload]);
 
         function onFileSelected(e) {
             const file = e.target.files[0];
