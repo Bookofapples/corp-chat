@@ -1151,6 +1151,7 @@
             };
 
             const { error } = await supabaseClient.from('messages').insert([insertPayload]);
+        }
 
         function onFileSelected(e) {
             const file = e.target.files[0];
