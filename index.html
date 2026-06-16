@@ -1140,11 +1140,24 @@
             if (input) input.value = '';
             closeEmojiPicker();
             
-            const msg = { id: Date.now(), text, sender: currentUser, time: new Date().toISOString(), readStatus: 0, type: 'text' };
-            if (!isProdMode) {
-                addMessage(activeChatId, msg, true);
-                if (activeChatId === 'general') triggerDemoReply();
-                return;
+            // Убрали демо-режим. Теперь сразу формируем payload для реальной базы Supabase:
+            let insertPayload = {
+                "text": text,
+                "sender": currentUser.id, // строго ID пользователя
+                "chat_id": activeChatId
+            };
+
+            // Отправляем в реальную таблицу messages
+            const { error } = await supabaseClient.from('messages').insert([insertPayload]);
+            
+            if (error) {
+                console.error("Ошибка отправки в Supabase:", error);
+                alert("Не удалось отправить сообщение в базу данных.");
+            } else {
+                // Если в коде ниже вызывается локальное добавление или обновление, оставь его, 
+                // либо, если есть функция loadMessages(), можно вызвать её:
+                if (typeof loadMessages === 'function') await loadMessages();
+            }
             }
             
             addMessage(activeChatId, msg, true);
