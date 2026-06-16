@@ -288,27 +288,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const BASE_CHATS = [
             { id: 'general', name: 'Общий канал', subtitle: 'Все сотрудники', icon: 'groups', color: 'bg-blue-600', searchable: 'общий канал сотрудники', type: 'group', functional: true },
-            { id: 'ivan', name: 'Иван (Методология)', subtitle: 'был(а) недавно', icon: 'person', color: 'bg-indigo-500', searchable: 'иван методология', type: 'personal', functional: false, unread: 0 },
-            { id: 'elena', name: 'Елена (Бухгалтерия)', subtitle: 'в сети', icon: 'person', color: 'bg-rose-500', searchable: 'елена бухгалтерия', type: 'personal', functional: false, unread: 1 },
-            { id: 'bot', name: 'Бот-помощник', subtitle: 'автоответчик', icon: 'smart_toy', color: 'bg-emerald-600', searchable: 'бот помощник', type: 'personal', functional: false, unread: 3 },
         ];
 
-        const COLLEAGUE_DIRECTORY = [
-            { id: 'dir-ivan', name: 'Иван (Методология)', color: 'bg-indigo-500', icon: 'person' },
-            { id: 'dir-elena', name: 'Елена (Бухгалтерия)', color: 'bg-rose-500', icon: 'person' },
-            { id: 'dir-bot', name: 'Бот-помощник', color: 'bg-emerald-600', icon: 'smart_toy' },
-        ];
+        const COLLEAGUE_DIRECTORY = [];
 
-        const DEMO_REPLIES = [
-            { sender: 'Иван (Методология)', text: 'О, привет! Тестируешь новый мессенджер? Слушай, выглядит очень шустро!' },
-            { sender: 'Елена (Бухгалтерия)', text: 'Всем привет! Подскажите, а где найти регламент по новым модулям?' },
-            { sender: 'Иван (Методология)', text: 'Проверил с телефона — верстка топ, стрелочка назад работает идеально.' },
-            { sender: 'Елена (Бухгалтерия)', text: 'Отлично! Можно уже показывать руководству на демо 👍' },
-            { sender: 'Бот-помощник', text: 'Напоминаю: сегодня в 15:00 общий созвон по итогам квартала.' },
-            { sender: 'Иван (Методология)', text: 'Кстати, тёмная тема в настройках — огонь для вечерней работы.' },
-        ];
-
-        const EMOJIS = ['😀','😂','😊','😍','🤔','👍','👏','🙌','🔥','💡','✅','❤️','🎉','📎','📌','💼','☕','🚀','⭐','💬','🤝','📊','📝','🎯','😎','🙏','💪','👋','😉','🤖','📱','💻'];
+        const EMOJIS = ['😀','😂','😊','😍','🤔','👍','👏','🙌','🔥','🤡','✅','❤️','🎉','📎','📌','💼','☕','🚀','⭐','💬','🤝','📊','📝','🎯','😎','🙏','💪','👋','😉','🤖','📱','💻'];
 
         const THEME = {
             light: {
@@ -388,7 +372,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let activeTab = 'all';
         let searchQuery = '';
         let typingTimer = null;
-        let demoReplyTimer = null;
 
         const getEl = (id) => document.getElementById(id);
         
@@ -759,10 +742,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? `<div class="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>` 
                     : '';
                 
+                // Build avatar HTML
+                let avatarHtml;
+                if (chat.avatar) {
+                    avatarHtml = `<img src="${escapeHtml(chat.avatar)}" alt="" class="w-11 h-11 rounded-xl object-cover shadow-sm">`;
+                } else {
+                    avatarHtml = `<div class="w-11 h-11 rounded-xl ${chat.color} flex items-center justify-center text-white shadow-sm"><span class="material-icons text-xl">${chat.icon}</span></div>`;
+                }
+                
                 return `
                     <button type="button" data-chat-id="${chat.id}" class="chat-item w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left ${isActive ? c.chatItemActive : c.chatItem}">
                         <div class="relative shrink-0">
-                            <div class="w-11 h-11 rounded-xl ${chat.color} flex items-center justify-center text-white shadow-sm"><span class="material-icons text-xl">${chat.icon}</span></div>
+                            ${avatarHtml}
                             ${onlineIndicator}
                         </div>
                         <div class="flex-1 min-w-0">
@@ -1088,17 +1079,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typingTimer) { clearTimeout(typingTimer); typingTimer = null; }
         }
 
-        function triggerDemoReply() {
-            if (isProdMode || activeChatId !== 'general') return;
-            if (demoReplyTimer) clearTimeout(demoReplyTimer);
-            const reply = DEMO_REPLIES[Math.floor(Math.random() * DEMO_REPLIES.length)];
-            typingTimer = setTimeout(() => showTyping(reply.sender), 1000);
-            demoReplyTimer = setTimeout(() => {
-                hideTyping();
-                addMessage('general', { id: 'demo-' + Date.now(), text: reply.text, sender: reply.sender, time: new Date().toISOString(), type: 'text' });
-            }, 2000);
-        }
-
         async function initMessenger() {
             if (realtimeChannel && supabaseClient) {
                 await supabaseClient.removeChannel(realtimeChannel);
@@ -1107,19 +1087,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (presenceChannel && supabaseClient) {
                 await supabaseClient.removeChannel(presenceChannel);
                 presenceChannel = null;
-            }
-            if (!isProdMode) {
-                if (!getMessages('general').length) {
-                    const now = Date.now();
-                    chatMessages.general = [
-                        { id: 'd1', text: 'Коллеги, доброе утро! Кто уже смотрел новую платформу?', sender: 'Иван (Методология)', time: new Date(now - 3600000).toISOString(), type: 'text' },
-                        { id: 'd2', text: 'Привет! Я как раз тестирую с телефона — всё отлично.', sender: 'Елена (Бухгалтерия)', time: new Date(now - 3000000).toISOString(), type: 'text' },
-                        { id: 'd3', text: 'Напоминаю: сегодня в 15:00 общий созвон.', sender: 'Бот-помощник', time: new Date(now - 1800000).toISOString(), type: 'text' },
-                        { id: 'd4', text: 'Добро пожаловать! Пишите в чат — коллеги ответят автоматически.', sender: 'Система', time: new Date(now - 600000).toISOString(), type: 'text' },
-                    ];
-                    saveCustomData();
-                }
-                return;
             }
             
             // Create a user map for quick lookups
@@ -1231,24 +1198,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (input) input.value = '';
             if (typeof closeEmojiPicker === 'function') closeEmojiPicker();
 
-            if (!isProdMode && activeChatId === 'general') {
-                // Demo mode
-                const msg = {
-                    id: Date.now(),
-                    text: text,
-                    sender: currentUser,
-                    time: new Date().toISOString(),
-                    readStatus: 0,
-                    type: 'text'
-                };
-                if (typeof addMessage === 'function') {
-                    addMessage(activeChatId, msg, true);
-                }
-                triggerDemoReply();
-                return;
-            }
-
-            // Real mode: only send to Supabase, let Realtime handle display
+            // Send to Supabase, let Realtime handle display
             if (currentProfile && currentProfile.id) {
                 let insertPayload = {
                     "text": text,
@@ -1278,7 +1228,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 addMessage(activeChatId, { id: msgId, text: `📎 Файл «${file.name}» успешно прикреплён`, sender: currentUser, time: new Date().toISOString(), readStatus: 0, type: 'file' }, true);
             }
-            if (!isProdMode && activeChatId === 'general') triggerDemoReply();
         }
 
         function openLightbox(src) {
@@ -1562,14 +1511,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function loadAllUsers() {
             try {
-                const { data, error } = await supabaseClient
+                const { data: users, error } = await supabaseClient
                     .from('profiles')
-                    .select('id, username, avatar_url')
+                    .select('*')
                     .order('username', { ascending: true });
                 
                 if (error) throw error;
                 
-                allUsers = data;
+                allUsers = users;
                 updateBaseChats();
                 renderChatList();
             } catch (err) {
@@ -1578,10 +1527,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function updateBaseChats() {
-            // Keep general channel, bot, etc. (indices 0 and 3)
-            BASE_CHATS.length = 1; // Keep only general at index 0
-            // Add back bot?
-            BASE_CHATS.push({ id: 'bot', name: 'Бот-помощник', subtitle: 'автоответчик', icon: 'smart_toy', color: 'bg-emerald-600', searchable: 'бот помощник', type: 'personal', functional: false, unread: 3 });
+            // Keep only general channel
+            BASE_CHATS.length = 1;
             
             allUsers.forEach(user => {
                 if (user.id !== currentProfile?.id) {
@@ -1593,12 +1540,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     const roomId = getPersonalChatId(currentProfile.id, user.id);
                     
+                    // Random color for personal chat avatar
+                    const colors = ['bg-purple-600', 'bg-rose-500', 'bg-indigo-500', 'bg-teal-500', 'bg-orange-500', 'bg-pink-500'];
+                    const colorIndex = user.id.charCodeAt(0) % colors.length;
+                    
                     BASE_CHATS.push({
                         id: roomId,
                         name: displayName,
                         subtitle: 'Пользователь',
                         icon: 'person',
-                        color: 'bg-purple-600',
+                        color: colors[colorIndex],
                         searchable: displayName.toLowerCase(),
                         type: 'personal',
                         functional: true,
@@ -1872,14 +1823,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function loadAllUsers() {
             try {
-                const { data, error } = await supabaseClient
+                const { data: users, error } = await supabaseClient
                     .from('profiles')
-                    .select('id, username, avatar_url')
+                    .select('*')
                     .order('username', { ascending: true });
                 
                 if (error) throw error;
                 
-                allUsers = data;
+                allUsers = users;
                 updateBaseChats();
                 renderChatList();
             } catch (err) {
@@ -1888,10 +1839,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function updateBaseChats() {
-            // Keep general channel, bot, etc. (indices 0 and 3)
-            BASE_CHATS.length = 1; // Keep only general at index 0
-            // Add back bot?
-            BASE_CHATS.push({ id: 'bot', name: 'Бот-помощник', subtitle: 'автоответчик', icon: 'smart_toy', color: 'bg-emerald-600', searchable: 'бот помощник', type: 'personal', functional: false, unread: 3 });
+            // Keep only general channel
+            BASE_CHATS.length = 1;
             
             allUsers.forEach(user => {
                 if (user.id !== currentProfile?.id) {
@@ -1903,12 +1852,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     const roomId = getPersonalChatId(currentProfile.id, user.id);
                     
+                    // Random color for personal chat avatar
+                    const colors = ['bg-purple-600', 'bg-rose-500', 'bg-indigo-500', 'bg-teal-500', 'bg-orange-500', 'bg-pink-500'];
+                    const colorIndex = user.id.charCodeAt(0) % colors.length;
+                    
                     BASE_CHATS.push({
                         id: roomId,
                         name: displayName,
                         subtitle: 'Пользователь',
                         icon: 'person',
-                        color: 'bg-purple-600',
+                        color: colors[colorIndex],
                         searchable: displayName.toLowerCase(),
                         type: 'personal',
                         functional: true,
