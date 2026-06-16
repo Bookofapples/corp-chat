@@ -522,9 +522,9 @@
 
         function renderAvatar(el, name) {
             if (avatarUrl) {
-                const cacheBust = `?cacheBust=${new Date().getTime()}`;
+                const cacheBust = `?t=${Date.now()}`;
                 const safeUrl = avatarUrl.replace(/"/g, '&quot;') + cacheBust;
-                el.innerHTML = `<img src="${safeUrl}" alt="" class="w-full h-full object-cover">`;
+                el.innerHTML = `<img src="${safeUrl}" alt="" class="w-full h-full object-cover rounded-full">`;
             } else {
                 el.innerHTML = '';
                 el.textContent = (name || currentUser).substring(0, 2).toUpperCase();
@@ -1011,20 +1011,20 @@
         }
 
         async function uploadAvatarToSupabase(file) {
-            if (!isProdMode || !supabaseClient) {
+            if (!isProdMode || !supabaseClient || !currentProfile) {
                 return '';
             }
             try {
                 // Extract file extension safely
                 const ext = file.name.split('.').pop();
-                // Generate completely safe filename
-                const fileName = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+                // Use consistent filename based on user id
+                const fileName = `avatar_${currentProfile.id}.${ext}`;
                 const { error: uploadError } = await supabaseClient
                     .storage
                     .from('avatars')
                     .upload(fileName, file, {
                         cacheControl: '3600',
-                        upsert: false
+                        upsert: true
                     });
                 if (uploadError) {
                     console.error('Upload error:', uploadError);
@@ -1240,20 +1240,20 @@
         }
 
         async function uploadAvatarToSupabase(file) {
-            if (!isProdMode || !supabaseClient) {
+            if (!isProdMode || !supabaseClient || !currentProfile) {
                 return '';
             }
             try {
                 // Extract file extension safely
                 const ext = file.name.split('.').pop();
-                // Generate completely safe filename
-                const fileName = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+                // Use consistent filename based on user id
+                const fileName = `avatar_${currentProfile.id}.${ext}`;
                 const { error: uploadError } = await supabaseClient
                     .storage
                     .from('avatars')
                     .upload(fileName, file, {
                         cacheControl: '3600',
-                        upsert: false
+                        upsert: true
                     });
                 if (uploadError) {
                     console.error('Upload error:', uploadError);
@@ -1485,20 +1485,20 @@
         }
 
         async function uploadAvatarToSupabase(file) {
-            if (!isProdMode || !supabaseClient) {
+            if (!isProdMode || !supabaseClient || !currentProfile) {
                 return '';
             }
             try {
                 // Extract file extension safely
                 const ext = file.name.split('.').pop();
-                // Generate completely safe filename
-                const fileName = `avatar-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+                // Use consistent filename based on user id
+                const fileName = `avatar_${currentProfile.id}.${ext}`;
                 const { error: uploadError } = await supabaseClient
                     .storage
                     .from('avatars')
                     .upload(fileName, file, {
                         cacheControl: '3600',
-                        upsert: false
+                        upsert: true
                     });
                 if (uploadError) {
                     console.error('Upload error:', uploadError);
