@@ -716,13 +716,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             list.innerHTML = chats.map(chat => {
                 const isActive = chat.id === activeChatId;
-                const prev = chat.functional ? getPreviewText(chat.id) : chat.subtitle;
                 const unread = chat.unread > 0 ? `<span class="min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold shrink-0">${chat.unread}</span>` : '';
                 let badge = '';
                 if (chat.id === 'general') {
                     badge = `<span id="status-badge" class="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0 ${isProdMode ? (theme === 'dark' ? 'bg-emerald-900/50 text-emerald-400' : 'bg-emerald-100 text-emerald-700') : (theme === 'dark' ? 'bg-amber-900/50 text-amber-400' : 'bg-amber-100 text-amber-700')}">${isProdMode ? 'Realtime' : 'Демо'}</span>`;
-                } else if (chat.custom) {
-                    badge = `<span class="text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 ${theme === 'dark' ? 'bg-violet-900/50 text-violet-300' : 'bg-violet-100 text-violet-700'}">Группа</span>`;
                 }
                 
                 // Determine online status for personal chats
@@ -742,6 +739,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? `<div class="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>` 
                     : '';
                 
+                // Determine subtitle: for personal chats, show position/role + online status; for general show preview
+                let subtitleText = '';
+                if (chat.type === 'personal') {
+                    const baseSubtitle = chat.subtitle || '';
+                    const statusText = isOnline ? 'В сети' : 'Оффлайн';
+                    if (baseSubtitle) {
+                        subtitleText = `${baseSubtitle} • ${statusText}`;
+                    } else {
+                        subtitleText = statusText;
+                    }
+                } else {
+                    // For group chats, use preview text
+                    subtitleText = chat.functional ? getPreviewText(chat.id) : chat.subtitle;
+                }
+                
                 // Build avatar HTML
                 let avatarHtml;
                 if (chat.avatar) {
@@ -751,7 +763,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 return `
-                    <button type="button" data-chat-id="${chat.id}" class="chat-item w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left ${isActive ? c.chatItemActive : c.chatItem}">
+                    <button type="button" data-chat-id="${chat.id}" data-user-id="${chat.userId || ''}" class="chat-item w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left ${isActive ? c.chatItemActive : c.chatItem}">
                         <div class="relative shrink-0">
                             ${avatarHtml}
                             ${onlineIndicator}
@@ -761,7 +773,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <h4 class="text-sm font-semibold truncate ${c.textPrimary}">${escapeHtml(chat.name)}</h4>
                                 <div class="flex items-center gap-1 shrink-0">${badge}${unread}</div>
                             </div>
-                            <p class="text-xs truncate mt-0.5 ${c.textMuted}">${escapeHtml(prev)}</p>
+                            <p class="text-xs truncate mt-0.5 ${c.textMuted}">${escapeHtml(subtitleText)}</p>
                         </div>
                     </button>`;
             }).join('');
@@ -1527,8 +1539,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function updateBaseChats() {
-            // Keep only general channel
+            // Keep only general channel, make sure it's group
             BASE_CHATS.length = 1;
+            if (BASE_CHATS[0]) {
+                BASE_CHATS[0].type = 'group';
+                BASE_CHATS[0].isGroup = true;
+            }
             
             allUsers.forEach(user => {
                 if (user.id !== currentProfile?.id) {
@@ -1544,18 +1560,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     const colors = ['bg-purple-600', 'bg-rose-500', 'bg-indigo-500', 'bg-teal-500', 'bg-orange-500', 'bg-pink-500'];
                     const colorIndex = user.id.charCodeAt(0) % colors.length;
                     
+                    // Determine subtitle: use position/role if available
+                    let subtitle = user.position || user.role || '';
+                    
                     BASE_CHATS.push({
                         id: roomId,
                         name: displayName,
-                        subtitle: 'Пользователь',
+                        subtitle: subtitle,
                         icon: 'person',
                         color: colors[colorIndex],
                         searchable: displayName.toLowerCase(),
                         type: 'personal',
+                        isGroup: false,
                         functional: true,
                         unread: 0,
                         avatar: user.avatar_url,
-                        userId: user.id
+                        userId: user.id,
+                        userData: user
                     });
                 }
             });
@@ -1839,8 +1860,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function updateBaseChats() {
-            // Keep only general channel
+            // Keep only general channel, make sure it's group
             BASE_CHATS.length = 1;
+            if (BASE_CHATS[0]) {
+                BASE_CHATS[0].type = 'group';
+                BASE_CHATS[0].isGroup = true;
+            }
             
             allUsers.forEach(user => {
                 if (user.id !== currentProfile?.id) {
@@ -1856,18 +1881,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     const colors = ['bg-purple-600', 'bg-rose-500', 'bg-indigo-500', 'bg-teal-500', 'bg-orange-500', 'bg-pink-500'];
                     const colorIndex = user.id.charCodeAt(0) % colors.length;
                     
+                    // Determine subtitle: use position/role if available
+                    let subtitle = user.position || user.role || '';
+                    
                     BASE_CHATS.push({
                         id: roomId,
                         name: displayName,
-                        subtitle: 'Пользователь',
+                        subtitle: subtitle,
                         icon: 'person',
                         color: colors[colorIndex],
                         searchable: displayName.toLowerCase(),
                         type: 'personal',
+                        isGroup: false,
                         functional: true,
                         unread: 0,
                         avatar: user.avatar_url,
-                        userId: user.id
+                        userId: user.id,
+                        userData: user
                     });
                 }
             });
