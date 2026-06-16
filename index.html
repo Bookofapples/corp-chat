@@ -381,6 +381,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let chatMessages = {};
         let chatMembers = {};
         let realtimeChannel = null;
+        let presenceChannel = null;
+        let onlineUsers = new Set();
         let chatOpenOnMobile = false;
         let activeChatId = 'general';
         let activeTab = 'all';
@@ -702,6 +704,18 @@ document.addEventListener('DOMContentLoaded', () => {
             return `${last.sender}: ${t}`;
         }
 
+        function updateUsersOnlineStatus(presenceState) {
+            // Collect all online user IDs from presence state
+            onlineUsers.clear();
+            Object.values(presenceState).forEach(presences => {
+                presences.forEach(p => {
+                    if (p.user_id) onlineUsers.add(p.user_id);
+                });
+            });
+            // Re-render chat list to update status indicators
+            renderChatList();
+        }
+
         function renderChatList() {
             const list = getEl('chat-list');
             if (!list) return;
@@ -727,10 +741,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (chat.custom) {
                     badge = `<span class="text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 ${theme === 'dark' ? 'bg-violet-900/50 text-violet-300' : 'bg-violet-100 text-violet-700'}">Группа</span>`;
                 }
+                
+                // Determine online status for personal chats
+                let isOnline = false;
+                if (chat.userId) { // If chat has userId property (from updateBaseChats)
+                    isOnline = onlineUsers.has(chat.userId);
+                } else if (chat.id.startsWith('room_')) { // Or if it's a room chat
+                    const parts = chat.id.split('_');
+                    const userIds = [parts[1], parts[2]];
+                    const otherUserId = userIds.find(id => id !== currentProfile?.id);
+                    if (otherUserId) {
+                        isOnline = onlineUsers.has(otherUserId);
+                    }
+                }
+                
+                const onlineIndicator = isOnline 
+                    ? `<div class="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>` 
+                    : '';
+                
                 return `
                     <button type="button" data-chat-id="${chat.id}" class="chat-item w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left ${isActive ? c.chatItemActive : c.chatItem}">
                         <div class="relative shrink-0">
                             <div class="w-11 h-11 rounded-xl ${chat.color} flex items-center justify-center text-white shadow-sm"><span class="material-icons text-xl">${chat.icon}</span></div>
+                            ${onlineIndicator}
                         </div>
                         <div class="flex-1 min-w-0">
                             <div class="flex justify-between items-center gap-2">
@@ -1071,6 +1104,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 await supabaseClient.removeChannel(realtimeChannel);
                 realtimeChannel = null;
             }
+            if (presenceChannel && supabaseClient) {
+                await supabaseClient.removeChannel(presenceChannel);
+                presenceChannel = null;
+            }
             if (!isProdMode) {
                 if (!getMessages('general').length) {
                     const now = Date.now();
@@ -1158,6 +1195,27 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     }
                 }).subscribe();
+
+            // Set up presence channel for online/offline status
+            if (currentProfile?.id) {
+                presenceChannel = supabaseClient.channel('online-users', {
+                    config: { presence: { key: currentProfile.id } }
+                });
+
+                presenceChannel
+                    .on('presence', { event: 'sync' }, () => {
+                        const newState = presenceChannel.presenceState();
+                        updateUsersOnlineStatus(newState);
+                    })
+                    .subscribe(async (status) => {
+                        if (status === 'SUBSCRIBED') {
+                            await presenceChannel.track({
+                                online_at: new Date().toISOString(),
+                                user_id: currentProfile.id
+                            });
+                        }
+                    });
+            }
         }
 
         async function sendMessage(e) {
@@ -2103,6 +2161,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
         else boot();
+        
+        // iOS background reconnection: refresh when app becomes visible or focused
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                console.log('Приложение вышло из фона, обновляем соединение...');
+                // Принудительно перезапускаем подписку Supabase
+                if (typeof supabaseClient !== 'undefined') {
+                    // Reload all messages and reconnect realtime
+                    if (typeof initMessenger === 'function') {
+                        initMessenger();
+                    }
+                }
+            }
+        });
+        
+        window.addEventListener('focus', () => {
+            console.log('Приложение в фокусе, обновляем соединение...');
+            if (typeof supabaseClient !== 'undefined') {
+                if (typeof initMessenger === 'function') {
+                    initMessenger();
+                }
+            }
+        });
     </script>
 </body>
 </html>
