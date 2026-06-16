@@ -1055,15 +1055,52 @@
                 }
                 return;
             }
-            const { data, error } = await supabaseClient.from('messages').select('id, text, sender, created_at').order('id', { ascending: true }).limit(100);
-            if (error) {
+            
+            // Load general messages
+            const { data: generalData, error: generalError } = await supabaseClient.from('messages').select('id, text, sender, created_at').is('recipient_id', null).order('id', { ascending: true }).limit(100);
+            if (generalError) {
                 chatMessages.general = [{ id: 'err-0', text: 'Не удалось загрузить сообщения.', sender: 'Система', time: new Date().toISOString(), type: 'text' }];
-                return;
+            } else {
+                chatMessages.general = (generalData || []).map(m => ({ ...m, time: m.created_at, type: 'text' }));
             }
-            chatMessages.general = (data || []).map(m => ({ ...m, time: m.created_at, type: 'text' }));
+            
+            // Load personal messages for each user
+            for (const user of allUsers) {
+                if (user.id === currentProfile?.id) continue;
+                const chatId = `user-${user.id}`;
+                if (!chatMessages[chatId]) chatMessages[chatId] = [];
+                
+                const { data: personalData, error: personalError } = await supabaseClient.from('messages')
+                    .select('id, text, sender, created_at, user_id, recipient_id')
+                    .or(`and(user_id.eq.${currentProfile.id},recipient_id.eq.${user.id}),and(user_id.eq.${user.id},recipient_id.eq.${currentProfile.id})`)
+                    .order('id', { ascending: true });
+                
+                if (!personalError && personalData) {
+                    chatMessages[chatId] = personalData.map(m => ({ ...m, time: m.created_at, type: 'text' }));
+                }
+            }
+            
             realtimeChannel = supabaseClient.channel('public:messages')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-                    addMessage('general', { ...payload.new, time: payload.new.created_at, type: 'text' });
+                    const newMsg = { ...payload.new, time: payload.new.created_at, type: 'text' };
+                    
+                    // Check if it's a general message (no recipient)
+                    if (!payload.new.recipient_id) {
+                        addMessage('general', newMsg);
+                    } else {
+                        // It's a personal message! Determine which chat to add it to
+                        let otherUserId = null;
+                        if (payload.new.user_id === currentProfile?.id) {
+                            otherUserId = payload.new.recipient_id;
+                        } else if (payload.new.recipient_id === currentProfile?.id) {
+                            otherUserId = payload.new.user_id;
+                        }
+                        
+                        if (otherUserId) {
+                            const chatId = `user-${otherUserId}`;
+                            addMessage(chatId, newMsg);
+                        }
+                    }
                 }).subscribe();
         }
 
@@ -1072,9 +1109,9 @@
             const chat = getChat(activeChatId);
             if (!chat.functional) return;
             const input = getEl('message-input');
-            const text = input.value.trim();
+            const text = input ? input.value.trim() : '';
             if (!text) return;
-            input.value = '';
+            if (input) input.value = '';
             closeEmojiPicker();
             
             const msg = { id: Date.now(), text, sender: currentUser, time: new Date().toISOString(), readStatus: 0, type: 'text' };
@@ -1083,12 +1120,24 @@
                 if (activeChatId === 'general') triggerDemoReply();
                 return;
             }
-            if (activeChatId !== 'general') { addMessage(activeChatId, msg, true); return; }
-            addMessage('general', msg, true);
-            const { error } = await supabaseClient.from('messages').insert([
-                { text, sender: currentUser, user_id: currentProfile.id }
-            ]);
-            if (error) addMessage('general', { id: 'err-' + Date.now(), text: 'Не удалось отправить.', sender: 'Система', time: new Date().toISOString(), type: 'text' });
+            
+            // For personal chats, extract recipient id
+            let recipientId = null;
+            if (activeChatId.startsWith('user-')) {
+                recipientId = activeChatId.replace('user-', '');
+            }
+            
+            addMessage(activeChatId, msg, true);
+            
+            // Insert into database
+            let insertPayload = { text, sender: currentUser, user_id: currentProfile.id };
+            if (recipientId) {
+                insertPayload.recipient_id = recipientId;
+            }
+            
+            const { error } = await supabaseClient.from('messages').insert([insertPayload]);
+            
+            if (error) addMessage(activeChatId, { id: 'err-' + Date.now(), text: 'Не удалось отправить.', sender: 'Система', time: new Date().toISOString(), type: 'text' });
         }
 
         function onFileSelected(e) {
@@ -1389,7 +1438,7 @@
             try {
                 const { data, error } = await supabaseClient
                     .from('profiles')
-                    .select('*')
+                    .select('id, username, avatar_url')
                     .order('username', { ascending: true });
                 
                 if (error) throw error;
@@ -1403,18 +1452,28 @@
         }
 
         function updateBaseChats() {
-            BASE_CHATS.splice(1, BASE_CHATS.length - 4); // Keep general, bot, etc.
+            // Keep general channel, bot, etc. (indices 0 and 3)
+            BASE_CHATS.length = 1; // Keep only general at index 0
+            // Add back bot?
+            BASE_CHATS.push({ id: 'bot', name: 'Бот-помощник', subtitle: 'автоответчик', icon: 'smart_toy', color: 'bg-emerald-600', searchable: 'бот помощник', type: 'personal', functional: false, unread: 3 });
+            
             allUsers.forEach(user => {
                 if (user.id !== currentProfile?.id) {
+                    // Determine display name
+                    let displayName = user.username;
+                    if (!displayName || displayName.trim() === '') {
+                        displayName = 'Пользователь без имени';
+                    }
+                    
                     BASE_CHATS.push({
                         id: `user-${user.id}`,
-                        name: user.username,
+                        name: displayName,
                         subtitle: 'Пользователь',
                         icon: 'person',
                         color: 'bg-purple-600',
-                        searchable: user.username.toLowerCase(),
+                        searchable: displayName.toLowerCase(),
                         type: 'personal',
-                        functional: false,
+                        functional: true,
                         unread: 0,
                         avatar: user.avatar_url
                     });
@@ -1686,7 +1745,7 @@
             try {
                 const { data, error } = await supabaseClient
                     .from('profiles')
-                    .select('*')
+                    .select('id, username, avatar_url')
                     .order('username', { ascending: true });
                 
                 if (error) throw error;
@@ -1700,18 +1759,28 @@
         }
 
         function updateBaseChats() {
-            BASE_CHATS.splice(1, BASE_CHATS.length - 4); // Keep general, bot, etc.
+            // Keep general channel, bot, etc. (indices 0 and 3)
+            BASE_CHATS.length = 1; // Keep only general at index 0
+            // Add back bot?
+            BASE_CHATS.push({ id: 'bot', name: 'Бот-помощник', subtitle: 'автоответчик', icon: 'smart_toy', color: 'bg-emerald-600', searchable: 'бот помощник', type: 'personal', functional: false, unread: 3 });
+            
             allUsers.forEach(user => {
                 if (user.id !== currentProfile?.id) {
+                    // Determine display name
+                    let displayName = user.username;
+                    if (!displayName || displayName.trim() === '') {
+                        displayName = 'Пользователь без имени';
+                    }
+                    
                     BASE_CHATS.push({
                         id: `user-${user.id}`,
-                        name: user.username,
+                        name: displayName,
                         subtitle: 'Пользователь',
                         icon: 'person',
                         color: 'bg-purple-600',
-                        searchable: user.username.toLowerCase(),
+                        searchable: displayName.toLowerCase(),
                         type: 'personal',
-                        functional: false,
+                        functional: true,
                         unread: 0,
                         avatar: user.avatar_url
                     });
