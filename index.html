@@ -269,6 +269,16 @@
     </div>
 
     <script>
+        // Железный запрос прав на уведомления при полной загрузке страницы
+document.addEventListener('DOMContentLoaded', () => {
+    if ('Notification' in window) {
+        if (Notification.permission === 'default') {
+            Notification.requestPermission().then(permission => {
+                console.log('Статус разрешения на уведомления:', permission);
+            });
+        }
+    }
+});
         const SUPABASE_URL = "https://eebtmgkterepxhyoetha.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_njOiZERvm13ToJTjtWM4dg_ZDHV4Frz";
 
