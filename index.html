@@ -421,11 +421,9 @@
                 ];
             } else if (chatId.startsWith('group-')) {
                 chatMembers[chatId] = [{ id: 'self', name: currentUser, role: 'admin', isSelf: true }];
-            } else if (chatId.startsWith('chat_')) {
+            } else if (chatId.startsWith('user-')) {
                 // For personal chats, members are current user and the other user
-                const parts = chatId.split('_');
-                const userIds = [parts[1], parts[2]];
-                const otherUserId = userIds.find(id => id !== currentProfile?.id);
+                const otherUserId = chatId.replace('user-', '');
                 const otherUser = allUsers.find(u => u.id === otherUserId);
                 let otherUserName = 'Пользователь';
                 if (otherUser) {
@@ -1105,7 +1103,7 @@
                 
                 const { data: personalData, error: personalError } = await supabaseClient.from('messages')
                     .select('id, text, sender, created_at, chat_id')
-                    .eq('chat_id', chatId)
+                    .or(`and(sender.eq.${currentProfile.id},chat_id.eq.${user.id}),and(sender.eq.${user.id},chat_id.eq.${currentProfile.id})`)
                     .order('id', { ascending: true });
                 
                 if (!personalError && personalData) {
@@ -1132,7 +1130,21 @@
                     
                     // Add to correct chat
                     if (payload.new.chat_id) {
-                        addMessage(payload.new.chat_id, newMsg);
+                        // Check if it's a general or group chat
+                        if (payload.new.chat_id === 'general' || payload.new.chat_id.startsWith('group-')) {
+                            addMessage(payload.new.chat_id, newMsg);
+                        } else {
+                            // It's a personal chat, figure out the correct chat id
+                            // If message is from us to someone: chat_id is user-{their id}
+                            // If message is from someone to us: chat_id is user-{sender id}
+                            let targetChatId;
+                            if (payload.new.sender === currentProfile?.id) {
+                                targetChatId = `user-${payload.new.chat_id}`;
+                            } else {
+                                targetChatId = `user-${payload.new.sender}`;
+                            }
+                            addMessage(targetChatId, newMsg);
+                        }
                     }
                 }).subscribe();
         }
@@ -1169,10 +1181,16 @@
 
             // Real mode: only send to Supabase, let Realtime handle display
             if (currentProfile && currentProfile.id) {
+                let chatIdToSend = activeChatId;
+                // For personal chats, use the other user's id as chat_id
+                if (activeChatId.startsWith('user-')) {
+                    chatIdToSend = activeChatId.replace('user-', '');
+                }
+                
                 let insertPayload = {
                     "text": text,
                     "sender": currentProfile.id,
-                    "chat_id": activeChatId
+                    "chat_id": chatIdToSend
                 };
 
                 const { error } = await supabaseClient.from('messages').insert([insertPayload]);
@@ -1510,10 +1528,8 @@
                         displayName = 'Пользователь без имени';
                     }
                     
-                    const chatId = getPersonalChatId(currentProfile.id, user.id);
-                    
                     BASE_CHATS.push({
-                        id: chatId,
+                        id: `user-${user.id}`,
                         name: displayName,
                         subtitle: 'Пользователь',
                         icon: 'person',
@@ -1522,7 +1538,8 @@
                         type: 'personal',
                         functional: true,
                         unread: 0,
-                        avatar: user.avatar_url
+                        avatar: user.avatar_url,
+                        userId: user.id
                     });
                 }
             });
@@ -1819,10 +1836,8 @@
                         displayName = 'Пользователь без имени';
                     }
                     
-                    const chatId = getPersonalChatId(currentProfile.id, user.id);
-                    
                     BASE_CHATS.push({
-                        id: chatId,
+                        id: `user-${user.id}`,
                         name: displayName,
                         subtitle: 'Пользователь',
                         icon: 'person',
@@ -1831,7 +1846,8 @@
                         type: 'personal',
                         functional: true,
                         unread: 0,
-                        avatar: user.avatar_url
+                        avatar: user.avatar_url,
+                        userId: user.id
                     });
                 }
             });
