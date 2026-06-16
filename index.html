@@ -1248,35 +1248,37 @@
             
             // Upload to Supabase first
             const uploadedUrl = await uploadAvatarToSupabase(file);
-            if (uploadedUrl) {
+            if (uploadedUrl && currentProfile) {
                 // Only use the Supabase public URL, no blobs!
                 avatarUrl = uploadedUrl;
+                // Save avatar URL to profiles table
+                await supabaseClient
+                    .from('profiles')
+                    .update({ avatar_url: uploadedUrl })
+                    .eq('id', currentProfile.id);
+
                 setAvatarFromUrl(avatarUrl);
             }
         }
 
-        function saveSettings() {
-            const name = getEl('settings-name').value.trim();
-            if (name.length >= 2) {
-                const oldName = currentUser;
+        async function saveSettings() {
+            const settingsNameEl = getEl('settings-name');
+            const name = settingsNameEl ? settingsNameEl.value.trim() : '';
+            if (name.length >= 2 && currentProfile) {
                 currentUser = name;
+                currentProfile.username = name;
                 localStorage.setItem('chat_username', name);
-                if (oldName !== name) {
-                    Object.values(chatMembers).forEach(arr => arr.forEach(m => { if (m.id === 'self') m.name = name; }));
-                    saveCustomData();
-                }
+
+                // Update database
+                await supabaseClient
+                    .from('profiles')
+                    .update({ username: name })
+                    .eq('id', currentProfile.id);
+
+                updateUserDisplay();
+                renderChatList();
+                renderMessages();
             }
-            const urlInput = getEl('settings-avatar-url').value.trim();
-            if (urlInput) {
-                avatarUrl = urlInput;
-                localStorage.setItem('chat_avatar', avatarUrl);
-                setAvatarFromUrl(avatarUrl);
-            } else if (avatarUrl && avatarUrl.startsWith('http')) {
-                // Save the Supabase public URL
-                localStorage.setItem('chat_avatar', avatarUrl);
-            }
-            updateUserDisplay();
-            renderMessages();
             closeSettings();
         }
 
@@ -1318,17 +1320,31 @@
 
         async function loadUserProfile(userId) {
             try {
-                const { data, error } = await supabaseClient
+                // First, try to get existing profile (without .single())
+                let { data, error } = await supabaseClient
                     .from('profiles')
                     .select('*')
-                    .eq('id', userId)
-                    .single();
-                
+                    .eq('id', userId);
+
                 if (error) throw error;
-                
-                currentProfile = data;
-                currentUser = data.username;
-                avatarUrl = data.avatar_url || '';
+
+                let profile = data?.[0];
+
+                // If no profile exists, create a new one!
+                if (!profile) {
+                    const { data: newProfileData, error: insertError } = await supabaseClient
+                        .from('profiles')
+                        .insert([{ id: userId, username: '', avatar_url: '' }])
+                        .select('*')
+                        .single();
+
+                    if (insertError) throw insertError;
+                    profile = newProfileData;
+                }
+
+                currentProfile = profile;
+                currentUser = profile.username || '';
+                avatarUrl = profile.avatar_url || '';
                 localStorage.setItem('chat_username', currentUser);
                 localStorage.setItem('chat_avatar', avatarUrl);
                 updateUserDisplay();
@@ -1585,17 +1601,31 @@
 
         async function loadUserProfile(userId) {
             try {
-                const { data, error } = await supabaseClient
+                // First, try to get existing profile (without .single())
+                let { data, error } = await supabaseClient
                     .from('profiles')
                     .select('*')
-                    .eq('id', userId)
-                    .single();
-                
+                    .eq('id', userId);
+
                 if (error) throw error;
-                
-                currentProfile = data;
-                currentUser = data.username;
-                avatarUrl = data.avatar_url || '';
+
+                let profile = data?.[0];
+
+                // If no profile exists, create a new one!
+                if (!profile) {
+                    const { data: newProfileData, error: insertError } = await supabaseClient
+                        .from('profiles')
+                        .insert([{ id: userId, username: '', avatar_url: '' }])
+                        .select('*')
+                        .single();
+
+                    if (insertError) throw insertError;
+                    profile = newProfileData;
+                }
+
+                currentProfile = profile;
+                currentUser = profile.username || '';
+                avatarUrl = profile.avatar_url || '';
                 localStorage.setItem('chat_username', currentUser);
                 localStorage.setItem('chat_avatar', avatarUrl);
                 updateUserDisplay();
