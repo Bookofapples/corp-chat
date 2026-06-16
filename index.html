@@ -1128,14 +1128,13 @@
             
             addMessage(activeChatId, msg, true);
             
-          let insertPayload = {
+         let insertPayload = {
             "текст": text,
             "отправитель": currentUser.id,
             "chat_id": activeChatId
         };
 
-        const { error } = await supabaseClient.from('Сообщения').insert([insertPayload]);
-            
+        const { error } = await supabaseClient.from('messages').insert([insertPayload]);
             if (error) addMessage(activeChatId, { id: 'err-' + Date.now(), text: 'Не удалось отправить.', sender: 'Система', time: new Date().toISOString(), type: 'text' });
         }
 
