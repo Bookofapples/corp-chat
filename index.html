@@ -458,66 +458,181 @@
         function applyTheme(t) {
             theme = t;
             localStorage.setItem('chat_theme', t);
-            getEl('chat-container').setAttribute('data-theme', t);
+            const chatContainer = getEl('chat-container');
+            if (chatContainer) {
+                chatContainer.setAttribute('data-theme', t);
+            }
             const c = THEME[t];
 
-            getEl('sidebar').className = `w-full md:w-[340px] lg:w-[380px] shrink-0 flex flex-col h-full z-10 border-r transition-colors duration-300 ${c.sidebar}`;
-            getEl('sidebar-header').className = `p-4 border-b flex items-center justify-between shrink-0 transition-colors duration-300 ${c.sidebarHeader}`;
-            getEl('sidebar-footer').className = `p-3 border-t shrink-0 transition-colors duration-300 ${c.sidebarFooter}`;
-            getEl('chat-header').className = `px-4 py-3 border-b flex items-center gap-2 shadow-sm shrink-0 transition-colors duration-300 ${c.chatHeader}`;
-            getEl('messages-container').className = `flex-1 overflow-y-auto px-4 py-4 space-y-3 scroll-smooth transition-colors duration-300 ${c.chatBg}`;
-            getEl('input-panel').className = `p-3 md:p-4 border-t shrink-0 safe-bottom relative transition-colors duration-300 ${c.inputPanel} shadow-[0_-4px_20px_rgba(0,0,0,0.04)]`;
+            const sidebar = getEl('sidebar');
+            if (sidebar) {
+                sidebar.className = `w-full md:w-[340px] lg:w-[380px] shrink-0 flex flex-col h-full z-10 border-r transition-colors duration-300 ${c.sidebar}`;
+            }
+            const sidebarHeader = getEl('sidebar-header');
+            if (sidebarHeader) {
+                sidebarHeader.className = `p-4 border-b flex items-center justify-between shrink-0 transition-colors duration-300 ${c.sidebarHeader}`;
+            }
+            const sidebarFooter = getEl('sidebar-footer');
+            if (sidebarFooter) {
+                sidebarFooter.className = `p-3 border-t shrink-0 transition-colors duration-300 ${c.sidebarFooter}`;
+            }
+            const chatHeader = getEl('chat-header');
+            if (chatHeader) {
+                chatHeader.className = `px-4 py-3 border-b flex items-center gap-2 shadow-sm shrink-0 transition-colors duration-300 ${c.chatHeader}`;
+            }
+            const messagesContainer = getEl('messages-container');
+            if (messagesContainer) {
+                messagesContainer.className = `flex-1 overflow-y-auto px-4 py-4 space-y-3 scroll-smooth transition-colors duration-300 ${c.chatBg}`;
+            }
+            const inputPanel = getEl('input-panel');
+            if (inputPanel) {
+                inputPanel.className = `p-3 md:p-4 border-t shrink-0 safe-bottom relative transition-colors duration-300 ${c.inputPanel} shadow-[0_-4px_20px_rgba(0,0,0,0.04)]`;
+            }
 
-            getEl('current-user-display').className = `font-semibold text-sm truncate ${c.textPrimary}`;
-            getEl('chats-label').className = `text-[10px] font-semibold uppercase tracking-widest px-2 ${c.textMuted}`;
-            getEl('theme-label').className = `text-[10px] font-semibold uppercase tracking-widest px-1 mb-2 ${c.textMuted}`;
-            getEl('chat-title').className = `font-bold text-sm truncate ${c.textPrimary}`;
-            getEl('chat-subtitle').className = `text-xs truncate ${c.textMuted}`;
-            getEl('emoji-label').className = `text-[10px] font-semibold uppercase tracking-wider mb-2 px-1 ${c.textMuted}`;
-            getEl('settings-title').className = `text-lg font-bold ${c.textPrimary}`;
-            getEl('group-modal-title').className = `text-lg font-bold ${c.textPrimary}`;
-            getEl('members-modal-title').className = `text-lg font-bold ${c.textPrimary}`;
+            const currentUserDisplay = getEl('current-user-display');
+            if (currentUserDisplay) {
+                currentUserDisplay.className = `font-semibold text-sm truncate ${c.textPrimary}`;
+            }
+            const chatsLabel = getEl('chats-label');
+            if (chatsLabel) {
+                chatsLabel.className = `text-[10px] font-semibold uppercase tracking-widest px-2 ${c.textMuted}`;
+            }
+            const themeLabel = getEl('theme-label');
+            if (themeLabel) {
+                themeLabel.className = `text-[10px] font-semibold uppercase tracking-widest px-1 mb-2 ${c.textMuted}`;
+            }
+            const chatTitle = getEl('chat-title');
+            if (chatTitle) {
+                chatTitle.className = `font-bold text-sm truncate ${c.textPrimary}`;
+            }
+            const chatSubtitle = getEl('chat-subtitle');
+            if (chatSubtitle) {
+                chatSubtitle.className = `text-xs truncate ${c.textMuted}`;
+            }
+            const emojiLabel = getEl('emoji-label');
+            if (emojiLabel) {
+                emojiLabel.className = `text-[10px] font-semibold uppercase tracking-wider mb-2 px-1 ${c.textMuted}`;
+            }
+            const settingsTitle = getEl('settings-title');
+            if (settingsTitle) {
+                settingsTitle.className = `text-lg font-bold ${c.textPrimary}`;
+            }
+            const groupModalTitle = getEl('group-modal-title');
+            if (groupModalTitle) {
+                groupModalTitle.className = `text-lg font-bold ${c.textPrimary}`;
+            }
+            const membersModalTitle = getEl('members-modal-title');
+            if (membersModalTitle) {
+                membersModalTitle.className = `text-lg font-bold ${c.textPrimary}`;
+            }
 
-            getEl('search-input').className = `w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all ${c.search}`;
-            getEl('search-icon').className = `material-icons absolute left-3 top-1/2 -translate-y-1/2 text-lg pointer-events-none ${c.searchIcon}`;
-            getEl('message-input').className = `flex-1 px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all min-w-0 ${c.input}`;
-            document.querySelectorAll('.fld-input').forEach(el => { el.className = `fld-input w-full px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 ${c.input}`; });
-            document.querySelectorAll('.lbl-muted').forEach(el => { el.className = `lbl-muted block text-xs font-medium mb-1.5 uppercase tracking-wider ${c.textMuted}`; });
+            const searchInput = getEl('search-input');
+            if (searchInput) {
+                searchInput.className = `w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all ${c.search}`;
+            }
+            const searchIcon = getEl('search-icon');
+            if (searchIcon) {
+                searchIcon.className = `material-icons absolute left-3 top-1/2 -translate-y-1/2 text-lg pointer-events-none ${c.searchIcon}`;
+            }
+            const messageInput = getEl('message-input');
+            if (messageInput) {
+                messageInput.className = `flex-1 px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all min-w-0 ${c.input}`;
+            }
+            document.querySelectorAll('.fld-input').forEach(el => { if (el) { el.className = `fld-input w-full px-4 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 ${c.input}`; } });
+            document.querySelectorAll('.lbl-muted').forEach(el => { if (el) { el.className = `lbl-muted block text-xs font-medium mb-1.5 uppercase tracking-wider ${c.textMuted}`; } });
 
-            getEl('settings-btn').className = `theme-icon-btn p-2 rounded-lg transition-colors ${c.iconBtn}`;
-            getEl('logout-btn').className = `theme-icon-btn p-2 rounded-lg transition-colors hover:!text-red-500 ${c.iconBtn}`;
-            getEl('back-btn').className = `md:hidden p-2 -ml-1 rounded-lg shrink-0 transition-colors ${c.iconBtn}`;
-            getEl('members-btn').className = `shrink-0 p-2 rounded-lg transition-colors ${c.iconBtn}`;
-            getEl('modal-close-x').className = `p-1.5 rounded-lg transition-colors ${c.iconBtn}`;
-            getEl('group-modal-close-x').className = `p-1.5 rounded-lg transition-colors ${c.iconBtn}`;
-            getEl('members-modal-close').className = `p-1.5 rounded-lg transition-colors ${c.iconBtn}`;
-            getEl('emoji-btn').className = `p-2.5 rounded-xl shrink-0 transition-colors ${c.iconBtn}`;
-            getEl('attach-btn').className = `p-2.5 rounded-xl shrink-0 transition-colors ${c.iconBtn}`;
+            const settingsBtn = getEl('settings-btn');
+            if (settingsBtn) {
+                settingsBtn.className = `theme-icon-btn p-2 rounded-lg transition-colors ${c.iconBtn}`;
+            }
+            const logoutBtn = getEl('logout-btn');
+            if (logoutBtn) {
+                logoutBtn.className = `theme-icon-btn p-2 rounded-lg transition-colors hover:!text-red-500 ${c.iconBtn}`;
+            }
+            const backBtn = getEl('back-btn');
+            if (backBtn) {
+                backBtn.className = `md:hidden p-2 -ml-1 rounded-lg shrink-0 transition-colors ${c.iconBtn}`;
+            }
+            const membersBtn = getEl('members-btn');
+            if (membersBtn) {
+                membersBtn.className = `shrink-0 p-2 rounded-lg transition-colors ${c.iconBtn}`;
+            }
+            const modalCloseX = getEl('modal-close-x');
+            if (modalCloseX) {
+                modalCloseX.className = `p-1.5 rounded-lg transition-colors ${c.iconBtn}`;
+            }
+            const groupModalCloseX = getEl('group-modal-close-x');
+            if (groupModalCloseX) {
+                groupModalCloseX.className = `p-1.5 rounded-lg transition-colors ${c.iconBtn}`;
+            }
+            const membersModalClose = getEl('members-modal-close');
+            if (membersModalClose) {
+                membersModalClose.className = `p-1.5 rounded-lg transition-colors ${c.iconBtn}`;
+            }
+            const emojiBtn = getEl('emoji-btn');
+            if (emojiBtn) {
+                emojiBtn.className = `p-2.5 rounded-xl shrink-0 transition-colors ${c.iconBtn}`;
+            }
+            const attachBtn = getEl('attach-btn');
+            if (attachBtn) {
+                attachBtn.className = `p-2.5 rounded-xl shrink-0 transition-colors ${c.iconBtn}`;
+            }
 
-            getEl('emoji-picker').className = `absolute bottom-full left-3 mb-2 z-[60] rounded-2xl shadow-2xl border p-3 w-[min(320px,calc(100vw-2rem))] ${c.emojiPanel}`;
+            const emojiPicker = getEl('emoji-picker');
+            if (emojiPicker) {
+                emojiPicker.className = `absolute bottom-full left-3 mb-2 z-[60] rounded-2xl shadow-2xl border p-3 w-[min(320px,calc(100vw-2rem))] ${c.emojiPanel}`;
+            }
             ['settings-modal-box','group-modal-box','members-modal-box'].forEach(id => {
-                getEl(id).className = `w-full ${id.includes('members') ? 'max-w-md max-h-[85vh] flex flex-col' : id.includes('group') ? 'max-w-sm' : 'max-w-md'} rounded-2xl shadow-2xl border overflow-hidden transition-colors duration-300 ${c.modal}`;
+                const el = getEl(id);
+                if (el) {
+                    el.className = `w-full ${id.includes('members') ? 'max-w-md max-h-[85vh] flex flex-col' : id.includes('group') ? 'max-w-sm' : 'max-w-md'} rounded-2xl shadow-2xl border overflow-hidden transition-colors duration-300 ${c.modal}`;
+                }
             });
             ['settings-modal-header','group-modal-header','members-modal-header'].forEach(id => {
-                getEl(id).className = `px-6 py-4 border-b flex items-center justify-between shrink-0 ${c.modalHeader}`;
+                const el = getEl(id);
+                if (el) {
+                    el.className = `px-6 py-4 border-b flex items-center justify-between shrink-0 ${c.modalHeader}`;
+                }
             });
-            getEl('settings-modal-footer').className = `px-6 py-4 border-t flex gap-3 ${c.modalHeader}`;
-            getEl('avatar-upload-zone').className = `flex items-center justify-center gap-2 w-full py-4 px-4 rounded-xl border-2 border-dashed transition-all text-sm font-medium ${c.uploadZone}`;
-            getEl('add-member-panel').className = `mt-3 rounded-xl border p-2 space-y-1 ${c.addPanel}`;
+            const settingsModalFooter = getEl('settings-modal-footer');
+            if (settingsModalFooter) {
+                settingsModalFooter.className = `px-6 py-4 border-t flex gap-3 ${c.modalHeader}`;
+            }
+            // getEl('avatar-upload-zone') removed, so skip this!
+            const addMemberPanel = getEl('add-member-panel');
+            if (addMemberPanel) {
+                addMemberPanel.className = `mt-3 rounded-xl border p-2 space-y-1 ${c.addPanel}`;
+            }
 
-            getEl('theme-light-btn').className = `py-2 px-3 rounded-xl text-xs font-semibold transition-all ${c.toggleBtn}` + (t === 'light' ? ' ring-2 ring-blue-500' : '');
-            getEl('theme-dark-btn').className = `py-2 px-3 rounded-xl text-xs font-semibold transition-all ${c.toggleBtn}` + (t === 'dark' ? ' ring-2 ring-blue-500' : '');
-            getEl('theme-seaside-btn').className = `py-2 px-3 rounded-xl text-xs font-semibold transition-all ${c.toggleBtn}` + (t === 'seaside' ? ' ring-2 ring-teal-500' : '');
-            getEl('theme-sunset-btn').className = `py-2 px-3 rounded-xl text-xs font-semibold transition-all ${c.toggleBtn}` + (t === 'sunset' ? ' ring-2 ring-orange-500' : '');
-            getEl('modal-close-btn').className = `flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${c.toggleBtn}`;
+            const themeLightBtn = getEl('theme-light-btn');
+            if (themeLightBtn) {
+                themeLightBtn.className = `py-2 px-3 rounded-xl text-xs font-semibold transition-all ${c.toggleBtn}` + (t === 'light' ? ' ring-2 ring-blue-500' : '');
+            }
+            const themeDarkBtn = getEl('theme-dark-btn');
+            if (themeDarkBtn) {
+                themeDarkBtn.className = `py-2 px-3 rounded-xl text-xs font-semibold transition-all ${c.toggleBtn}` + (t === 'dark' ? ' ring-2 ring-blue-500' : '');
+            }
+            const themeSeasideBtn = getEl('theme-seaside-btn');
+            if (themeSeasideBtn) {
+                themeSeasideBtn.className = `py-2 px-3 rounded-xl text-xs font-semibold transition-all ${c.toggleBtn}` + (t === 'seaside' ? ' ring-2 ring-teal-500' : '');
+            }
+            const themeSunsetBtn = getEl('theme-sunset-btn');
+            if (themeSunsetBtn) {
+                themeSunsetBtn.className = `py-2 px-3 rounded-xl text-xs font-semibold transition-all ${c.toggleBtn}` + (t === 'sunset' ? ' ring-2 ring-orange-500' : '');
+            }
+            const modalCloseBtn = getEl('modal-close-btn');
+            if (modalCloseBtn) {
+                modalCloseBtn.className = `flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${c.toggleBtn}`;
+            }
 
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.className = `tab-btn flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${btn.dataset.tab === activeTab ? c.tabActive : c.tabInactive}`;
-            });
+            document.querySelectorAll('.tab-btn').forEach(btn => { if (btn) { btn.className = `tab-btn flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${btn.dataset.tab === activeTab ? c.tabActive : c.tabInactive}`; } });
 
             renderChatList();
             renderMessages();
-            if (getEl('members-modal').classList.contains('is-open')) renderMembersModal();
+            const membersModal = getEl('members-modal');
+            if (membersModal && membersModal.classList.contains('is-open')) {
+                renderMembersModal();
+            }
         }
 
         function renderAvatar(el, name) {
@@ -532,8 +647,14 @@
         }
 
         function updateUserDisplay() {
-            getEl('current-user-display').textContent = currentUser;
-            renderAvatar(getEl('user-avatar'), currentUser);
+            const currentUserDisplay = getEl('current-user-display');
+            if (currentUserDisplay) {
+                currentUserDisplay.textContent = currentUser;
+            }
+            const userAvatar = getEl('user-avatar');
+            if (userAvatar) {
+                renderAvatar(userAvatar, currentUser);
+            }
             const members = chatMembers.general;
             if (members) {
                 const self = members.find(m => m.id === 'self');
@@ -554,6 +675,7 @@
 
         function renderChatList() {
             const list = getEl('chat-list');
+            if (!list) return;
             const c = THEME[theme];
             const q = searchQuery.toLowerCase().trim();
             let chats = getAllChats();
@@ -605,13 +727,17 @@
         }
 
         function showAuth() {
-            getEl('auth-screen').classList.remove('is-hidden');
-            getEl('app-screen').classList.add('is-hidden');
+            const authScreen = getEl('auth-screen');
+            if (authScreen) authScreen.classList.remove('is-hidden');
+            const appScreen = getEl('app-screen');
+            if (appScreen) appScreen.classList.add('is-hidden');
         }
 
         function showApp() {
-            getEl('auth-screen').classList.add('is-hidden');
-            getEl('app-screen').classList.remove('is-hidden');
+            const authScreen = getEl('auth-screen');
+            if (authScreen) authScreen.classList.add('is-hidden');
+            const appScreen = getEl('app-screen');
+            if (appScreen) appScreen.classList.remove('is-hidden');
             currentUser = localStorage.getItem('chat_username') || '';
             avatarUrl = localStorage.getItem('chat_avatar') || '';
             theme = localStorage.getItem('chat_theme') || 'light';
@@ -626,8 +752,10 @@
 
         function showSidebarOnly() {
             chatOpenOnMobile = false;
-            getEl('sidebar').classList.remove('is-mobile-hidden');
-            getEl('chat-window').classList.add('is-mobile-hidden');
+            const sidebar = getEl('sidebar');
+            if (sidebar) sidebar.classList.remove('is-mobile-hidden');
+            const chatWindow = getEl('chat-window');
+            if (chatWindow) chatWindow.classList.add('is-mobile-hidden');
         }
 
         function selectChat(chatId, fromUserClick) {
@@ -636,31 +764,49 @@
             chatOpenOnMobile = true;
             clearUnread(chatId);
 
-            getEl('chat-window').classList.remove('is-mobile-hidden');
-            if (isMobile()) getEl('sidebar').classList.add('is-mobile-hidden');
-            else getEl('sidebar').classList.remove('is-mobile-hidden');
-
-            getEl('chat-title').textContent = chat.name;
-            if (chat.functional) {
-                const memberCount = getMembers(chatId).length;
-                getEl('chat-subtitle').textContent = chat.id === 'general'
-                    ? (isProdMode ? `Realtime · ${memberCount} участников` : `Демо · ${memberCount} участников`)
-                    : `Группа · ${memberCount} участников`;
+            const chatWindow = getEl('chat-window');
+            if (chatWindow) chatWindow.classList.remove('is-mobile-hidden');
+            if (isMobile()) {
+                const sidebar = getEl('sidebar');
+                if (sidebar) sidebar.classList.add('is-mobile-hidden');
             } else {
-                getEl('chat-subtitle').textContent = chat.subtitle;
+                const sidebar = getEl('sidebar');
+                if (sidebar) sidebar.classList.remove('is-mobile-hidden');
             }
-            getEl('chat-header-icon').className = `w-10 h-10 rounded-xl ${chat.color} flex items-center justify-center text-white shadow-sm shrink-0`;
-            getEl('chat-header-icon').innerHTML = `<span class="material-icons">${chat.icon}</span>`;
+
+            const chatTitle = getEl('chat-title');
+            if (chatTitle) chatTitle.textContent = chat.name;
+            const chatSubtitle = getEl('chat-subtitle');
+            if (chatSubtitle) {
+                if (chat.functional) {
+                    const memberCount = getMembers(chatId).length;
+                    chatSubtitle.textContent = chat.id === 'general'
+                        ? (isProdMode ? `Realtime · ${memberCount} участников` : `Демо · ${memberCount} участников`)
+                        : `Группа · ${memberCount} участников`;
+                } else {
+                    chatSubtitle.textContent = chat.subtitle;
+                }
+            }
+            const chatHeaderIcon = getEl('chat-header-icon');
+            if (chatHeaderIcon) {
+                chatHeaderIcon.className = `w-10 h-10 rounded-xl ${chat.color} flex items-center justify-center text-white shadow-sm shrink-0`;
+                chatHeaderIcon.innerHTML = `<span class="material-icons">${chat.icon}</span>`;
+            }
 
             const showMembers = chat.type === 'group' && chat.functional;
-            getEl('members-btn').classList.toggle('hidden', !showMembers);
-            getEl('input-panel').style.display = chat.functional ? '' : 'none';
+            const membersBtn = getEl('members-btn');
+            if (membersBtn) membersBtn.classList.toggle('hidden', !showMembers);
+            const inputPanel = getEl('input-panel');
+            if (inputPanel) inputPanel.style.display = chat.functional ? '' : 'none';
 
             hideTyping();
             renderChatList();
             renderMessages();
             scrollToBottom();
-            if (fromUserClick && chat.functional) getEl('message-input').focus();
+            if (fromUserClick && chat.functional) {
+                const messageInput = getEl('message-input');
+                if (messageInput) messageInput.focus();
+            }
         }
 
         function backToSidebar() { if (isMobile()) showSidebarOnly(); }
@@ -686,6 +832,7 @@
 
         function renderMessages() {
             const container = getEl('messages-container');
+            if (!container) return;
             const c = THEME[theme];
             const chat = getChat(activeChatId);
             const messages = getMessages(activeChatId);
@@ -757,19 +904,25 @@
             const chat = getChat(activeChatId);
             if (chat.type !== 'group' || !chat.functional) return;
             closeAllModals();
-            getEl('members-modal-title').textContent = `Участники · ${chat.name}`;
-            getEl('add-member-panel').classList.remove('is-open');
+            const membersModalTitle = getEl('members-modal-title');
+            if (membersModalTitle) membersModalTitle.textContent = `Участники · ${chat.name}`;
+            const addMemberPanel = getEl('add-member-panel');
+            if (addMemberPanel) addMemberPanel.classList.remove('is-open');
             renderMembersModal();
-            getEl('members-modal').classList.add('is-open');
+            const membersModal = getEl('members-modal');
+            if (membersModal) membersModal.classList.add('is-open');
         }
 
         function closeMembersModal() {
-            getEl('members-modal').classList.remove('is-open');
-            getEl('add-member-panel').classList.remove('is-open');
+            const membersModal = getEl('members-modal');
+            if (membersModal) membersModal.classList.remove('is-open');
+            const addMemberPanel = getEl('add-member-panel');
+            if (addMemberPanel) addMemberPanel.classList.remove('is-open');
         }
 
         function renderAddMemberPanel() {
             const panel = getEl('add-member-panel');
+            if (!panel) return;
             const c = THEME[theme];
             const members = getMembers(activeChatId);
             const existingNames = new Set(members.map(m => m.name));
@@ -795,6 +948,7 @@
             const c = THEME[theme];
             const members = getMembers(activeChatId);
             const list = getEl('members-list');
+            if (!list) return;
 
             list.innerHTML = members.map(m => {
                 const isSelf = m.id === 'self' || m.name === currentUser;
@@ -832,7 +986,8 @@
             members.push({ id: directoryId, name: col.name, role: 'member' });
             saveCustomData();
             addSystemMessage(activeChatId, `${currentUser} добавил пользователя ${shortName(col.name)}`);
-            getEl('add-member-panel').classList.remove('is-open');
+            const addMemberPanel = getEl('add-member-panel');
+            if (addMemberPanel) addMemberPanel.classList.remove('is-open');
             renderMembersModal();
             selectChat(activeChatId, false);
         }
@@ -951,8 +1106,20 @@
             if (!isProdMode && activeChatId === 'general') triggerDemoReply();
         }
 
-        function openLightbox(src) { getEl('lightbox-img').src = src; getEl('lightbox').classList.add('is-open'); document.body.style.overflow = 'hidden'; }
-        function closeLightbox() { getEl('lightbox').classList.remove('is-open'); getEl('lightbox-img').src = ''; document.body.style.overflow = ''; }
+        function openLightbox(src) {
+            const lightboxImg = getEl('lightbox-img');
+            const lightbox = getEl('lightbox');
+            if (lightboxImg) lightboxImg.src = src;
+            if (lightbox) lightbox.classList.add('is-open');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeLightbox() {
+            const lightbox = getEl('lightbox');
+            const lightboxImg = getEl('lightbox-img');
+            if (lightbox) lightbox.classList.remove('is-open');
+            if (lightboxImg) lightboxImg.src = '';
+            document.body.style.overflow = '';
+        }
 
         function closeAllModals() {
             closeSettings(); closeGroupModal(); closeMembersModal(); closeLightbox(); closeEmojiPicker();
@@ -960,16 +1127,25 @@
 
         function openGroupModal() {
             closeAllModals();
-            getEl('group-name-input').value = '';
-            getEl('group-modal').classList.add('is-open');
-            setTimeout(() => getEl('group-name-input').focus(), 100);
+            const groupNameInput = getEl('group-name-input');
+            if (groupNameInput) groupNameInput.value = '';
+            const groupModal = getEl('group-modal');
+            if (groupModal) groupModal.classList.add('is-open');
+            setTimeout(() => {
+                const input = getEl('group-name-input');
+                if (input) input.focus();
+            }, 100);
         }
 
-        function closeGroupModal() { getEl('group-modal').classList.remove('is-open'); }
+        function closeGroupModal() {
+            const groupModal = getEl('group-modal');
+            if (groupModal) groupModal.classList.remove('is-open');
+        }
 
         function createGroup(e) {
             if (e) e.preventDefault();
-            const name = getEl('group-name-input').value.trim();
+            const groupNameInput = getEl('group-name-input');
+            const name = groupNameInput ? groupNameInput.value.trim() : '';
             if (name.length < 2) return;
             const id = 'group-' + Date.now();
             customGroups.push({ id, name, subtitle: 'Групповая беседа', icon: 'group_work', color: 'bg-violet-600', searchable: name.toLowerCase(), type: 'group', functional: true, custom: true });
@@ -985,29 +1161,52 @@
         function setActiveTab(tab) { activeTab = tab; applyTheme(theme); }
 
         function buildEmojiPicker() {
-            getEl('emoji-grid').innerHTML = EMOJIS.map(e => `<button type="button" class="emoji-item text-xl p-1.5 rounded-lg hover:bg-blue-100 transition-colors" data-emoji="${e}">${e}</button>`).join('');
-            getEl('emoji-grid').querySelectorAll('.emoji-item').forEach(btn => {
-                btn.addEventListener('click', () => { getEl('message-input').value += btn.dataset.emoji; getEl('message-input').focus(); });
+            const emojiGrid = getEl('emoji-grid');
+            if (!emojiGrid) return;
+            emojiGrid.innerHTML = EMOJIS.map(e => `<button type="button" class="emoji-item text-xl p-1.5 rounded-lg hover:bg-blue-100 transition-colors" data-emoji="${e}">${e}</button>`).join('');
+            emojiGrid.querySelectorAll('.emoji-item').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const messageInput = getEl('message-input');
+                    if (messageInput) {
+                        messageInput.value += btn.dataset.emoji;
+                        messageInput.focus();
+                    }
+                });
             });
         }
 
-        function toggleEmojiPicker() { getEl('emoji-picker').classList.toggle('is-open'); }
-        function closeEmojiPicker() { getEl('emoji-picker').classList.remove('is-open'); }
+        function toggleEmojiPicker() {
+            const emojiPicker = getEl('emoji-picker');
+            if (emojiPicker) emojiPicker.classList.toggle('is-open');
+        }
+        function closeEmojiPicker() {
+            const emojiPicker = getEl('emoji-picker');
+            if (emojiPicker) emojiPicker.classList.remove('is-open');
+        }
 
         function openSettings() {
             closeAllModals();
-            getEl('settings-name').value = currentUser;
-            getEl('settings-avatar-url').value = avatarUrl && avatarUrl.startsWith('http') ? avatarUrl : '';
-            renderAvatar(getEl('settings-avatar-preview'), currentUser);
-            getEl('settings-modal').classList.add('is-open');
+            const settingsName = getEl('settings-name');
+            if (settingsName) settingsName.value = currentUser;
+            const settingsAvatarUrl = getEl('settings-avatar-url');
+            if (settingsAvatarUrl) settingsAvatarUrl.value = avatarUrl && avatarUrl.startsWith('http') ? avatarUrl : '';
+            const settingsAvatarPreview = getEl('settings-avatar-preview');
+            if (settingsAvatarPreview) renderAvatar(settingsAvatarPreview, currentUser);
+            const settingsModal = getEl('settings-modal');
+            if (settingsModal) settingsModal.classList.add('is-open');
         }
 
-        function closeSettings() { getEl('settings-modal').classList.remove('is-open'); }
+        function closeSettings() {
+            const settingsModal = getEl('settings-modal');
+            if (settingsModal) settingsModal.classList.remove('is-open');
+        }
 
         function setAvatarFromUrl(url) {
             avatarUrl = url;
-            renderAvatar(getEl('settings-avatar-preview'), currentUser);
-            renderAvatar(getEl('user-avatar'), currentUser);
+            const settingsAvatarPreview = getEl('settings-avatar-preview');
+            const userAvatar = getEl('user-avatar');
+            if (settingsAvatarPreview) renderAvatar(settingsAvatarPreview, currentUser);
+            if (userAvatar) renderAvatar(userAvatar, currentUser);
         }
 
         async function uploadAvatarToSupabase(file) {
@@ -1329,13 +1528,17 @@
         });
 
         function showAuth() {
-            getEl('auth-container').classList.remove('hidden');
-            getEl('chat-container').classList.remove('visible');
+            const authContainer = getEl('auth-container');
+            if (authContainer) authContainer.classList.remove('hidden');
+            const chatContainer = getEl('chat-container');
+            if (chatContainer) chatContainer.classList.remove('visible');
         }
 
         function showChat() {
-            getEl('auth-container').classList.add('hidden');
-            getEl('chat-container').classList.add('visible');
+            const authContainer = getEl('auth-container');
+            if (authContainer) authContainer.classList.add('hidden');
+            const chatContainer = getEl('chat-container');
+            if (chatContainer) chatContainer.classList.add('visible');
             theme = localStorage.getItem('chat_theme') || 'light';
             loadCustomData();
             if (!chatMembers.general) initMembersForChat('general');
@@ -1347,15 +1550,20 @@
         }
 
         function toggleAuthSection(showSignup) {
-            getEl('login-section').classList.toggle('hidden', showSignup);
-            getEl('signup-section').classList.toggle('hidden', !showSignup);
+            const loginSection = getEl('login-section');
+            if (loginSection) loginSection.classList.toggle('hidden', showSignup);
+            const signupSection = getEl('signup-section');
+            if (signupSection) signupSection.classList.toggle('hidden', !showSignup);
         }
 
         async function signUp(e) {
             e.preventDefault();
-            const name = getEl('signup-name').value.trim();
-            const email = getEl('signup-email').value.trim();
-            const password = getEl('signup-password').value.trim();
+            const signupName = getEl('signup-name');
+            const signupEmail = getEl('signup-email');
+            const signupPassword = getEl('signup-password');
+            const name = signupName ? signupName.value.trim() : '';
+            const email = signupEmail ? signupEmail.value.trim() : '';
+            const password = signupPassword ? signupPassword.value.trim() : '';
             if (!name || !email || !password) return;
             
             const { data, error } = await supabaseClient.auth.signUp({ email, password });
@@ -1369,7 +1577,8 @@
                     .insert([{ id: data.user.id, username: name, email: email, avatar_url: '' }]);
                 
                 // Show confirmation message
-                getEl('email-confirmation').classList.remove('hidden');
+                const emailConfirmation = getEl('email-confirmation');
+                if (emailConfirmation) emailConfirmation.classList.remove('hidden');
                 toggleAuthSection(false);
             }
         }
@@ -1398,8 +1607,10 @@
 
         async function signIn(e) {
             e.preventDefault();
-            const email = getEl('login-email').value.trim();
-            const password = getEl('login-password').value.trim();
+            const loginEmail = getEl('login-email');
+            const loginPassword = getEl('login-password');
+            const email = loginEmail ? loginEmail.value.trim() : '';
+            const password = loginPassword ? loginPassword.value.trim() : '';
             if (!email || !password) return;
             
             const { data, error } = await supabaseClient.auth.signInWithPassword({ 
@@ -1455,11 +1666,16 @@
             localStorage.removeItem('chat_username');
             localStorage.removeItem('chat_avatar');
             // Clear fields
-            getEl('login-email').value = '';
-            getEl('login-password').value = '';
-            getEl('signup-name').value = '';
-            getEl('signup-email').value = '';
-            getEl('signup-password').value = '';
+            const loginEmail = getEl('login-email');
+            const loginPassword = getEl('login-password');
+            const signupName = getEl('signup-name');
+            const signupEmail = getEl('signup-email');
+            const signupPassword = getEl('signup-password');
+            if (loginEmail) loginEmail.value = '';
+            if (loginPassword) loginPassword.value = '';
+            if (signupName) signupName.value = '';
+            if (signupEmail) signupEmail.value = '';
+            if (signupPassword) signupPassword.value = '';
         }
 
         async function handleAvatarFile(e) {
@@ -1517,13 +1733,17 @@
 
         function openSettings() {
             closeAllModals();
-            getEl('settings-name').value = currentProfile?.username || currentUser || '';
-            renderAvatar(getEl('settings-avatar-preview'), currentUser);
-            getEl('settings-modal').classList.add('is-open');
+            const settingsName = getEl('settings-name');
+            if (settingsName) settingsName.value = currentProfile?.username || currentUser || '';
+            const settingsAvatarPreview = getEl('settings-avatar-preview');
+            if (settingsAvatarPreview) renderAvatar(settingsAvatarPreview, currentUser);
+            const settingsModal = getEl('settings-modal');
+            if (settingsModal) settingsModal.classList.add('is-open');
         }
 
         async function saveSettings() {
-            const name = getEl('settings-name').value.trim();
+            const settingsNameEl = getEl('settings-name');
+            const name = settingsNameEl ? settingsNameEl.value.trim() : '';
             if (name.length >= 2 && currentProfile) {
                 currentUser = name;
                 currentProfile.username = name;
@@ -1560,7 +1780,8 @@
                     showChat();
                 } else {
                     showAuth();
-                    getEl('login-email').focus();
+                    const loginEmail = getEl('login-email');
+                    if (loginEmail) loginEmail.focus();
                 }
             });
 
@@ -1568,46 +1789,96 @@
             const { data: { session } } = await supabaseClient.auth.getSession();
 
             // Add event listeners for auth
-            getEl('login-form').addEventListener('submit', signIn);
-            getEl('signup-form').addEventListener('submit', signUp);
-            getEl('to-signup').addEventListener('click', () => toggleAuthSection(true));
-            getEl('to-login').addEventListener('click', () => toggleAuthSection(false));
+            const loginForm = getEl('login-form');
+            if (loginForm) loginForm.addEventListener('submit', signIn);
+            const signupForm = getEl('signup-form');
+            if (signupForm) signupForm.addEventListener('submit', signUp);
+            const toSignup = getEl('to-signup');
+            if (toSignup) toSignup.addEventListener('click', () => toggleAuthSection(true));
+            const toLogin = getEl('to-login');
+            if (toLogin) toLogin.addEventListener('click', () => toggleAuthSection(false));
             
             // Add event listeners for app
-            getEl('message-form').addEventListener('submit', sendMessage);
-            getEl('logout-btn').addEventListener('click', logout);
-            getEl('back-btn').addEventListener('click', backToSidebar);
-            getEl('settings-btn').addEventListener('click', openSettings);
-            getEl('members-btn').addEventListener('click', openMembersModal);
-            getEl('modal-close-btn').addEventListener('click', closeSettings);
-            getEl('modal-close-x').addEventListener('click', closeSettings);
-            getEl('modal-save-btn').addEventListener('click', saveSettings);
-            getEl('delete-account-btn').addEventListener('click', deleteAccount);
-            getEl('settings-avatar-file').addEventListener('change', handleAvatarFile);
-            getEl('settings-avatar-preview').addEventListener('click', () => getEl('settings-avatar-file').click());
-            getEl('emoji-btn').addEventListener('click', (e) => { e.stopPropagation(); toggleEmojiPicker(); });
-            getEl('attach-btn').addEventListener('click', () => getEl('file-input').click());
-            getEl('file-input').addEventListener('change', onFileSelected);
-            getEl('search-input').addEventListener('input', (e) => { searchQuery = e.target.value; renderChatList(); });
-            getEl('theme-light-btn').addEventListener('click', () => applyTheme('light'));
-            getEl('theme-dark-btn').addEventListener('click', () => applyTheme('dark'));
-            getEl('theme-seaside-btn').addEventListener('click', () => applyTheme('seaside'));
-            getEl('theme-sunset-btn').addEventListener('click', () => applyTheme('sunset'));
-            getEl('create-group-btn').addEventListener('click', openGroupModal);
-            getEl('group-form').addEventListener('submit', createGroup);
-            getEl('group-modal-close-x').addEventListener('click', closeGroupModal);
-            getEl('members-modal-close').addEventListener('click', closeMembersModal);
-            getEl('toggle-add-member').addEventListener('click', () => {
-                getEl('add-member-panel').classList.toggle('is-open');
-                if (getEl('add-member-panel').classList.contains('is-open')) renderAddMemberPanel();
+            const messageForm = getEl('message-form');
+            if (messageForm) messageForm.addEventListener('submit', sendMessage);
+            const logoutBtn = getEl('logout-btn');
+            if (logoutBtn) logoutBtn.addEventListener('click', logout);
+            const backBtn = getEl('back-btn');
+            if (backBtn) backBtn.addEventListener('click', backToSidebar);
+            const settingsBtn = getEl('settings-btn');
+            if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
+            const membersBtn = getEl('members-btn');
+            if (membersBtn) membersBtn.addEventListener('click', openMembersModal);
+            const modalCloseBtn = getEl('modal-close-btn');
+            if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeSettings);
+            const modalCloseX = getEl('modal-close-x');
+            if (modalCloseX) modalCloseX.addEventListener('click', closeSettings);
+            const modalSaveBtn = getEl('modal-save-btn');
+            if (modalSaveBtn) modalSaveBtn.addEventListener('click', saveSettings);
+            const deleteAccountBtn = getEl('delete-account-btn');
+            if (deleteAccountBtn) deleteAccountBtn.addEventListener('click', deleteAccount);
+            const settingsAvatarFile = getEl('settings-avatar-file');
+            if (settingsAvatarFile) settingsAvatarFile.addEventListener('change', handleAvatarFile);
+            const settingsAvatarPreview = getEl('settings-avatar-preview');
+            if (settingsAvatarPreview) settingsAvatarPreview.addEventListener('click', () => {
+                const input = getEl('settings-avatar-file');
+                if (input) input.click();
             });
-            getEl('lightbox-close').addEventListener('click', closeLightbox);
-            getEl('lightbox').addEventListener('click', (e) => { if (e.target === getEl('lightbox')) closeLightbox(); });
+            const emojiBtn = getEl('emoji-btn');
+            if (emojiBtn) emojiBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleEmojiPicker(); });
+            const attachBtn = getEl('attach-btn');
+            if (attachBtn) attachBtn.addEventListener('click', () => {
+                const fileInput = getEl('file-input');
+                if (fileInput) fileInput.click();
+            });
+            const fileInput = getEl('file-input');
+            if (fileInput) fileInput.addEventListener('change', onFileSelected);
+            const searchInput = getEl('search-input');
+            if (searchInput) searchInput.addEventListener('input', (e) => { searchQuery = e.target.value; renderChatList(); });
+            const themeLightBtn = getEl('theme-light-btn');
+            if (themeLightBtn) themeLightBtn.addEventListener('click', () => applyTheme('light'));
+            const themeDarkBtn = getEl('theme-dark-btn');
+            if (themeDarkBtn) themeDarkBtn.addEventListener('click', () => applyTheme('dark'));
+            const themeSeasideBtn = getEl('theme-seaside-btn');
+            if (themeSeasideBtn) themeSeasideBtn.addEventListener('click', () => applyTheme('seaside'));
+            const themeSunsetBtn = getEl('theme-sunset-btn');
+            if (themeSunsetBtn) themeSunsetBtn.addEventListener('click', () => applyTheme('sunset'));
+            const createGroupBtn = getEl('create-group-btn');
+            if (createGroupBtn) createGroupBtn.addEventListener('click', openGroupModal);
+            const groupForm = getEl('group-form');
+            if (groupForm) groupForm.addEventListener('submit', createGroup);
+            const groupModalCloseX = getEl('group-modal-close-x');
+            if (groupModalCloseX) groupModalCloseX.addEventListener('click', closeGroupModal);
+            const membersModalClose = getEl('members-modal-close');
+            if (membersModalClose) membersModalClose.addEventListener('click', closeMembersModal);
+            const toggleAddMember = getEl('toggle-add-member');
+            if (toggleAddMember) toggleAddMember.addEventListener('click', () => {
+                const addMemberPanel = getEl('add-member-panel');
+                if (addMemberPanel) {
+                    addMemberPanel.classList.toggle('is-open');
+                    if (addMemberPanel.classList.contains('is-open')) renderAddMemberPanel();
+                }
+            });
+            const lightboxClose = getEl('lightbox-close');
+            if (lightboxClose) lightboxClose.addEventListener('click', closeLightbox);
+            const lightbox = getEl('lightbox');
+            if (lightbox) lightbox.addEventListener('click', (e) => {
+                if (e.target === lightbox) closeLightbox();
+            });
 
             document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => setActiveTab(btn.dataset.tab)));
-            getEl('settings-modal').addEventListener('click', (e) => { if (e.target === getEl('settings-modal')) closeSettings(); });
-            getEl('group-modal').addEventListener('click', (e) => { if (e.target === getEl('group-modal')) closeGroupModal(); });
-            getEl('members-modal').addEventListener('click', (e) => { if (e.target === getEl('members-modal')) closeMembersModal(); });
+            const settingsModal = getEl('settings-modal');
+            if (settingsModal) settingsModal.addEventListener('click', (e) => {
+                if (e.target === settingsModal) closeSettings();
+            });
+            const groupModal = getEl('group-modal');
+            if (groupModal) groupModal.addEventListener('click', (e) => {
+                if (e.target === groupModal) closeGroupModal();
+            });
+            const membersModal = getEl('members-modal');
+            if (membersModal) membersModal.addEventListener('click', (e) => {
+                if (e.target === membersModal) closeMembersModal();
+            });
         }
 
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
