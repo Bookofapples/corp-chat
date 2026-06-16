@@ -688,14 +688,71 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function updateUsersOnlineStatus(presenceState) {
-            // Collect all online user IDs from presence state
+            // 1. Сначала сбрасываем все точки в офлайн и обновляем onlineUsers Set
             onlineUsers.clear();
+            document.querySelectorAll('.status-dot').forEach(dot => {
+                dot.style.backgroundColor = '#94a3b8'; // Серый цвет
+            });
+
+            // 2. Получаем список ID всех, кто сейчас онлайн
+            const onlineUserIds = [];
             Object.values(presenceState).forEach(presences => {
                 presences.forEach(p => {
-                    if (p.user_id) onlineUsers.add(p.user_id);
+                    if (p.user_id) {
+                        onlineUsers.add(p.user_id);
+                        onlineUserIds.push(p.user_id);
+                    }
                 });
             });
-            // Re-render chat list to update status indicators
+
+            // 3. Зажигаем зелёный для тех, кто в сети - сначала по userId, потом по roomId
+            onlineUserIds.forEach(userId => {
+                // Ищем по userId
+                const dotByUserId = document.getElementById(`status-dot-${userId}`);
+                if (dotByUserId) {
+                    dotByUserId.style.backgroundColor = '#22c55e'; // Яркий зелёный цвет
+                }
+                
+                // Ищем по roomId для room-chat-* IDs
+                const personalChats = BASE_CHATS.filter(chat => chat.userId === userId);
+                personalChats.forEach(chat => {
+                    if (chat.id.startsWith('room_')) {
+                        const dotByRoomId = document.getElementById(`status-dot-${chat.id}`);
+                        if (dotByRoomId) {
+                            dotByRoomId.style.backgroundColor = '#22c55e';
+                        }
+                    }
+                });
+            });
+
+            // 4. Обновляем статус в шапке открытого чата (если это личный чат)
+            const chat = getChat(activeChatId);
+            if (chat && chat.id !== 'general') {
+                let isChatUserOnline = false;
+                if (chat.userId) {
+                    isChatUserOnline = onlineUserIds.includes(chat.userId);
+                } else if (chat.id.startsWith('room_')) {
+                    const parts = chat.id.split('_');
+                    const userIdsInRoom = [parts[1], parts[2]];
+                    const otherUserId = userIdsInRoom.find(id => id !== currentProfile?.id);
+                    if (otherUserId) {
+                        isChatUserOnline = onlineUserIds.includes(otherUserId);
+                    }
+                }
+
+                const chatSubtitle = getEl('chat-subtitle');
+                if (chatSubtitle) {
+                    const baseSubtitle = chat.subtitle || '';
+                    const statusText = isChatUserOnline ? 'В сети' : 'Оффлайн';
+                    if (baseSubtitle) {
+                        chatSubtitle.textContent = `${baseSubtitle} • ${statusText}`;
+                    } else {
+                        chatSubtitle.textContent = statusText;
+                    }
+                }
+            }
+
+            // 5. Обновляем список чатов, чтобы текст под именем тоже обновился
             renderChatList();
         }
 
@@ -735,9 +792,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 
+                const statusDotId = chat.userId ? `status-dot-${chat.userId}` : (chat.id.startsWith('room_') ? `status-dot-${chat.id}` : '');
                 const onlineIndicator = isOnline 
-                    ? `<div class="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>` 
-                    : '';
+                    ? `<div id="${statusDotId}" class="status-dot absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>` 
+                    : `<div id="${statusDotId}" class="status-dot absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-slate-400 border-2 border-white dark:border-slate-800 rounded-full"></div>`;
                 
                 // Determine subtitle: for personal chats, show position/role + online status; for general show preview
                 let subtitleText = '';
@@ -840,25 +898,63 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const chatTitle = getEl('chat-title');
-            if (chatTitle) chatTitle.textContent = chat.name;
             const chatSubtitle = getEl('chat-subtitle');
-            if (chatSubtitle) {
-                if (chat.functional) {
+            const chatHeaderIcon = getEl('chat-header-icon');
+
+            if (chat.id === 'general') {
+                // General channel
+                if (chatTitle) chatTitle.textContent = chat.name;
+                if (chatSubtitle) {
                     const memberCount = getMembers(chatId).length;
-                    chatSubtitle.textContent = chat.id === 'general'
-                        ? (isProdMode ? `Realtime · ${memberCount} участников` : `Демо · ${memberCount} участников`)
-                        : `Группа · ${memberCount} участников`;
-                } else {
-                    chatSubtitle.textContent = chat.subtitle;
+                    chatSubtitle.textContent = isProdMode 
+                        ? `Realtime · ${memberCount} участников` 
+                        : `Демо · ${memberCount} участников`;
+                }
+                if (chatHeaderIcon) {
+                    chatHeaderIcon.className = `w-10 h-10 rounded-xl ${chat.color} flex items-center justify-center text-white shadow-sm shrink-0`;
+                    chatHeaderIcon.innerHTML = `<span class="material-icons">${chat.icon}</span>`;
+                }
+            } else {
+                // Personal chat
+                if (chatTitle) chatTitle.textContent = chat.name;
+                
+                // Determine online status
+                let isOnline = false;
+                if (chat.userId) {
+                    isOnline = onlineUsers.has(chat.userId);
+                } else if (chat.id.startsWith('room_')) {
+                    const parts = chat.id.split('_');
+                    const userIds = [parts[1], parts[2]];
+                    const otherUserId = userIds.find(id => id !== currentProfile?.id);
+                    if (otherUserId) {
+                        isOnline = onlineUsers.has(otherUserId);
+                    }
+                }
+                
+                // Build subtitle
+                if (chatSubtitle) {
+                    const baseSubtitle = chat.subtitle || '';
+                    const statusText = isOnline ? 'В сети' : 'Оффлайн';
+                    if (baseSubtitle) {
+                        chatSubtitle.textContent = `${baseSubtitle} • ${statusText}`;
+                    } else {
+                        chatSubtitle.textContent = statusText;
+                    }
+                }
+                
+                // Set avatar
+                if (chatHeaderIcon) {
+                    if (chat.avatar) {
+                        chatHeaderIcon.className = 'w-10 h-10 rounded-xl shrink-0';
+                        chatHeaderIcon.innerHTML = `<img src="${escapeHtml(chat.avatar)}" alt="" class="w-full h-full rounded-xl object-cover shadow-sm">`;
+                    } else {
+                        chatHeaderIcon.className = `w-10 h-10 rounded-xl ${chat.color} flex items-center justify-center text-white shadow-sm shrink-0`;
+                        chatHeaderIcon.innerHTML = `<span class="material-icons">${chat.icon}</span>`;
+                    }
                 }
             }
-            const chatHeaderIcon = getEl('chat-header-icon');
-            if (chatHeaderIcon) {
-                chatHeaderIcon.className = `w-10 h-10 rounded-xl ${chat.color} flex items-center justify-center text-white shadow-sm shrink-0`;
-                chatHeaderIcon.innerHTML = `<span class="material-icons">${chat.icon}</span>`;
-            }
 
-            const showMembers = chat.type === 'group' && chat.functional;
+            const showMembers = chat.id === 'general' && chat.functional;
             const membersBtn = getEl('members-btn');
             if (membersBtn) membersBtn.classList.toggle('hidden', !showMembers);
             const inputPanel = getEl('input-panel');
