@@ -379,6 +379,11 @@
         let demoReplyTimer = null;
 
         const getEl = (id) => document.getElementById(id);
+        
+        function getPersonalChatId(userId1, userId2) {
+            const sortedIds = [userId1, userId2].sort();
+            return `chat_${sortedIds[0]}_${sortedIds[1]}`;
+        }
 
         function escapeHtml(str) {
             const el = document.createElement('span');
@@ -416,9 +421,11 @@
                 ];
             } else if (chatId.startsWith('group-')) {
                 chatMembers[chatId] = [{ id: 'self', name: currentUser, role: 'admin', isSelf: true }];
-            } else if (chatId.startsWith('user-')) {
+            } else if (chatId.startsWith('chat_')) {
                 // For personal chats, members are current user and the other user
-                const otherUserId = chatId.replace('user-', '');
+                const parts = chatId.split('_');
+                const userIds = [parts[1], parts[2]];
+                const otherUserId = userIds.find(id => id !== currentProfile?.id);
                 const otherUser = allUsers.find(u => u.id === otherUserId);
                 let otherUserName = 'Пользователь';
                 if (otherUser) {
@@ -1142,25 +1149,25 @@
             
             if (input) input.value = '';
             if (typeof closeEmojiPicker === 'function') closeEmojiPicker();
-            
-            // 1. Отрисовка на экране для мгновенного отклика интерфейса
-            const msg = {
-                id: Date.now(),
-                text: text,
-                sender: currentUser,
-                time: new Date().toISOString(),
-                readStatus: 0,
-                type: 'text'
-            };
-            if (typeof addMessage === 'function') {
-                addMessage(activeChatId, msg, true);
-            }
 
             if (!isProdMode && activeChatId === 'general') {
+                // Demo mode
+                const msg = {
+                    id: Date.now(),
+                    text: text,
+                    sender: currentUser,
+                    time: new Date().toISOString(),
+                    readStatus: 0,
+                    type: 'text'
+                };
+                if (typeof addMessage === 'function') {
+                    addMessage(activeChatId, msg, true);
+                }
                 triggerDemoReply();
+                return;
             }
 
-            // 2. Отправка payload в реальную таблицу messages в Supabase
+            // Real mode: only send to Supabase, let Realtime handle display
             if (currentProfile && currentProfile.id) {
                 let insertPayload = {
                     "text": text,
@@ -1503,8 +1510,10 @@
                         displayName = 'Пользователь без имени';
                     }
                     
+                    const chatId = getPersonalChatId(currentProfile.id, user.id);
+                    
                     BASE_CHATS.push({
-                        id: `user-${user.id}`,
+                        id: chatId,
                         name: displayName,
                         subtitle: 'Пользователь',
                         icon: 'person',
@@ -1810,8 +1819,10 @@
                         displayName = 'Пользователь без имени';
                     }
                     
+                    const chatId = getPersonalChatId(currentProfile.id, user.id);
+                    
                     BASE_CHATS.push({
-                        id: `user-${user.id}`,
+                        id: chatId,
                         name: displayName,
                         subtitle: 'Пользователь',
                         icon: 'person',
