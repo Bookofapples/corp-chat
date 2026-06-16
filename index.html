@@ -416,6 +416,18 @@
                 ];
             } else if (chatId.startsWith('group-')) {
                 chatMembers[chatId] = [{ id: 'self', name: currentUser, role: 'admin', isSelf: true }];
+            } else if (chatId.startsWith('user-')) {
+                // For personal chats, members are current user and the other user
+                const otherUserId = chatId.replace('user-', '');
+                const otherUser = allUsers.find(u => u.id === otherUserId);
+                let otherUserName = 'Пользователь';
+                if (otherUser) {
+                    otherUserName = otherUser.username || 'Пользователь без имени';
+                }
+                chatMembers[chatId] = [
+                    { id: 'self', name: currentUser, role: 'member', isSelf: true },
+                    { id: otherUserId, name: otherUserName, role: 'member' }
+                ];
             }
         }
 
@@ -1056,12 +1068,12 @@
                 return;
             }
             
-            // Load general messages
-            const { data: generalData, error: generalError } = await supabaseClient.from('messages').select('id, text, sender, created_at').is('recipient_id', null).order('id', { ascending: true }).limit(100);
+            // Load general messages (chat_id = 'general')
+            const { data: generalData, error: generalError } = await supabaseClient.from('messages').select('id, текст, отправитель, created_at').eq('chat_id', 'general').order('id', { ascending: true }).limit(100);
             if (generalError) {
                 chatMessages.general = [{ id: 'err-0', text: 'Не удалось загрузить сообщения.', sender: 'Система', time: new Date().toISOString(), type: 'text' }];
             } else {
-                chatMessages.general = (generalData || []).map(m => ({ ...m, time: m.created_at, type: 'text' }));
+                chatMessages.general = (generalData || []).map(m => ({ ...m, text: m.текст, sender: m.отправитель, time: m.created_at, type: 'text' }));
             }
             
             // Load personal messages for each user
@@ -1071,35 +1083,28 @@
                 if (!chatMessages[chatId]) chatMessages[chatId] = [];
                 
                 const { data: personalData, error: personalError } = await supabaseClient.from('messages')
-                    .select('id, text, sender, created_at, user_id, recipient_id')
-                    .or(`and(user_id.eq.${currentProfile.id},recipient_id.eq.${user.id}),and(user_id.eq.${user.id},recipient_id.eq.${currentProfile.id})`)
+                    .select('id, текст, отправитель, created_at, chat_id')
+                    .eq('chat_id', chatId)
                     .order('id', { ascending: true });
                 
                 if (!personalError && personalData) {
-                    chatMessages[chatId] = personalData.map(m => ({ ...m, time: m.created_at, type: 'text' }));
+                    chatMessages[chatId] = personalData.map(m => ({ ...m, text: m.текст, sender: m.отправитель, time: m.created_at, type: 'text' }));
                 }
             }
             
             realtimeChannel = supabaseClient.channel('public:messages')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-                    const newMsg = { ...payload.new, time: payload.new.created_at, type: 'text' };
+                    const newMsg = { 
+                        ...payload.new, 
+                        text: payload.new.текст, 
+                        sender: payload.new.отправитель, 
+                        time: payload.new.created_at, 
+                        type: 'text' 
+                    };
                     
-                    // Check if it's a general message (no recipient)
-                    if (!payload.new.recipient_id) {
-                        addMessage('general', newMsg);
-                    } else {
-                        // It's a personal message! Determine which chat to add it to
-                        let otherUserId = null;
-                        if (payload.new.user_id === currentProfile?.id) {
-                            otherUserId = payload.new.recipient_id;
-                        } else if (payload.new.recipient_id === currentProfile?.id) {
-                            otherUserId = payload.new.user_id;
-                        }
-                        
-                        if (otherUserId) {
-                            const chatId = `user-${otherUserId}`;
-                            addMessage(chatId, newMsg);
-                        }
+                    // Add to correct chat
+                    if (payload.new.chat_id) {
+                        addMessage(payload.new.chat_id, newMsg);
                     }
                 }).subscribe();
         }
@@ -1121,19 +1126,14 @@
                 return;
             }
             
-            // For personal chats, extract recipient id
-            let recipientId = null;
-            if (activeChatId.startsWith('user-')) {
-                recipientId = activeChatId.replace('user-', '');
-            }
-            
             addMessage(activeChatId, msg, true);
             
-            // Insert into database
-            let insertPayload = { text, sender: currentUser, user_id: currentProfile.id };
-            if (recipientId) {
-                insertPayload.recipient_id = recipientId;
-            }
+            // Insert into database using Russian column names!
+            let insertPayload = { 
+                "текст": text, 
+                "отправитель": currentUser,
+                "chat_id": activeChatId 
+            };
             
             const { error } = await supabaseClient.from('messages').insert([insertPayload]);
             
