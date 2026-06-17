@@ -913,11 +913,13 @@ document.addEventListener('DOMContentLoaded', () => {
             avatarUrl = localStorage.getItem('chat_avatar') || '';
             theme = localStorage.getItem('chat_theme') || 'light';
             loadCustomData();
+            // Restore last active chat
+            const lastChatId = localStorage.getItem('chat_active_chat_id') || 'general';
             if (!chatMembers.general) initMembersForChat('general');
             updateUserDisplay();
             initMessenger();
             applyTheme(theme);
-            selectChat('general', false);
+            selectChat(lastChatId, false);
             if (isMobile()) showSidebarOnly();
         }
 
@@ -931,6 +933,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function selectChat(chatId, fromUserClick) {
             activeChatId = chatId;
+            // Save active chat to localStorage
+            localStorage.setItem('chat_active_chat_id', activeChatId);
             const chat = getChat(chatId);
             chatOpenOnMobile = true;
             clearUnread(chatId);
@@ -1055,7 +1059,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (container) requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; });
         }
 
-        function renderChecks(isRead) {
+        function renderChecks(msg) {
+            // Check all possible read status fields, default to single checkmark if none found
+            let isRead = false;
+            if (msg.is_read === true || msg.is_read === 1) isRead = true;
+            if (msg.read === true || msg.read === 1) isRead = true;
+            if (msg.readStatus === 2) isRead = true;
+            
             if (isRead) return `<span class="text-[11px] text-sky-300 leading-none ml-0.5">✓✓</span>`;
             return `<span class="text-[11px] text-white/50 leading-none ml-0.5">✓</span>`;
         }
@@ -1103,7 +1113,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="max-w-[85%] sm:max-w-[75%] px-3.5 py-2 rounded-2xl text-sm shadow-sm break-words ${bubbleClass}">
                         ${renderMessageBody(msg)}
                         <div class="flex items-end justify-end gap-0.5 mt-1 msg-meta text-[10px] leading-none select-none">
-                            <span>${time}</span>${isMe ? `<span class="read-status">${renderChecks(msg.is_read)}</span>` : ''}
+                            <span>${time}</span>${isMe ? `<span class="read-status">${renderChecks(msg)}</span>` : ''}
                         </div></div></div>`;
             }).join('');
 
@@ -1375,7 +1385,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Load general messages (chat_id = 'general')
             const { data: generalData, error: generalError } = await supabaseClient
                 .from('messages')
-                .select('id, text, sender, created_at, chat_id')
+                .select('id, text, sender, created_at, chat_id, is_read, read, read_status')
                 .eq('chat_id', 'general')
                 .order('id', { ascending: true })
                 .limit(100);
@@ -1965,11 +1975,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (chatContainer) chatContainer.classList.add('visible');
             theme = localStorage.getItem('chat_theme') || 'light';
             loadCustomData();
+            // Restore last active chat
+            const lastChatId = localStorage.getItem('chat_active_chat_id') || 'general';
             if (!chatMembers.general) initMembersForChat('general');
             updateUserDisplay();
             initMessenger();
             applyTheme(theme);
-            selectChat('general', false);
+            selectChat(lastChatId, false);
             if (isMobile()) showSidebarOnly();
         }
 
