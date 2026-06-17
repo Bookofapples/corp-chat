@@ -885,7 +885,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (chatWindow) chatWindow.classList.add('is-mobile-hidden');
         }
 
-        function selectChat(chatId, fromUserClick) {
+        async function selectChat(chatId, fromUserClick) {
             activeChatId = chatId;
             const chat = getChat(chatId);
             chatOpenOnMobile = true;
@@ -956,6 +956,28 @@ document.addEventListener('DOMContentLoaded', () => {
                         chatHeaderIcon.innerHTML = `<span class="material-icons">${chat.icon}</span>`;
                     }
                 }
+                
+                // Mark all messages from this user as read
+                if (chat.userId) {
+                    await supabaseClient
+                        .from('messages')
+                        .update({ is_read: true })
+                        .eq('chat_id', activeChatId)
+                        .eq('sender', chat.userId)
+                        .eq('is_read', false);
+                } else if (chat.id.startsWith('room_')) {
+                    const parts = chat.id.split('_');
+                    const userIdsInRoom = [parts[1], parts[2]];
+                    const otherUserId = userIdsInRoom.find(id => id !== currentProfile?.id);
+                    if (otherUserId) {
+                        await supabaseClient
+                            .from('messages')
+                            .update({ is_read: true })
+                            .eq('chat_id', activeChatId)
+                            .eq('sender', otherUserId)
+                            .eq('is_read', false);
+                    }
+                }
             }
 
             const showMembers = chat.id === 'general' && chat.functional;
@@ -981,10 +1003,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (container) requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; });
         }
 
-        function renderChecks(status) {
-            if (status === 1) return `<span class="text-[11px] text-white/50 leading-none ml-0.5">✓</span>`;
-            if (status === 2) return `<span class="text-[11px] text-sky-300 leading-none ml-0.5">✓✓</span>`;
-            return '';
+        function renderChecks(isRead) {
+            if (isRead) return `<span class="text-[11px] text-sky-300 leading-none ml-0.5">✓✓</span>`;
+            return `<span class="text-[11px] text-white/50 leading-none ml-0.5">✓</span>`;
         }
 
         function renderMessageBody(msg) {
@@ -1022,7 +1043,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return `<div class="flex justify-center my-1" data-msg-id="${msg.id}">
                         <span class="text-[11px] px-3 py-1.5 rounded-full font-medium text-center max-w-[90%] ${sysClass}">${escapeHtml(msg.text)}</span></div>`;
                 }
-                const isMe = msg.sender === currentUser;
+                const isMe = msg.sender_id === currentProfile?.id; // Check using sender ID, not name!
                 const time = formatTime(msg.time || msg.created_at);
                 const bubbleClass = isMe ? 'msg-bubble-own bg-blue-600 text-white rounded-br-sm' : `msg-bubble-other rounded-bl-sm ${c.bubbleOther}`;
                 return `<div class="flex flex-col ${isMe ? 'items-end' : 'items-start'}" data-msg-id="${msg.id}">
@@ -1030,7 +1051,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="max-w-[85%] sm:max-w-[75%] px-3.5 py-2 rounded-2xl text-sm shadow-sm break-words ${bubbleClass}">
                         ${renderMessageBody(msg)}
                         <div class="flex items-end justify-end gap-0.5 mt-1 msg-meta text-[10px] leading-none select-none">
-                            <span>${time}</span>${isMe ? `<span class="read-status">${renderChecks(msg.readStatus)}</span>` : ''}
+                            <span>${time}</span>${isMe ? `<span class="read-status">${renderChecks(msg.is_read)}</span>` : ''}
                         </div></div></div>`;
             }).join('');
 
@@ -1204,13 +1225,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Initialize messages channel
             realtimeChannel = supabaseClient.channel('public:messages');
+            
+            // Handle INSERT events (new messages)
             realtimeChannel
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
                     const userMap = new Map(allUsers.map(u => [u.id, u.username]));
                     const newMsg = { 
                         ...payload.new, 
                         text: payload.new.text, 
                         sender: userMap.get(payload.new.sender) || 'Пользователь', 
+                        sender_id: payload.new.sender, // Store original sender ID!
                         time: payload.new.created_at, 
                         type: 'text' 
                     };
@@ -1218,6 +1242,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Add to correct chat
                     if (payload.new.chat_id) {
                         addMessage(payload.new.chat_id, newMsg);
+                    }
+                    
+                    // If this message is in the currently active chat and NOT from us, mark it as read immediately
+                    if (payload.new.chat_id === activeChatId && payload.new.sender !== currentProfile?.id) {
+                        await supabaseClient
+                            .from('messages')
+                            .update({ is_read: true })
+                            .eq('id', payload.new.id);
                     }
                     
                     // Show notification if needed
@@ -1233,6 +1265,28 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     }
                 });
+                
+            // Handle UPDATE events (message status changes, like is_read)
+            realtimeChannel
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
+                    // Find the message in chatMessages and update it
+                    const chatId = payload.new.chat_id;
+                    if (chatMessages[chatId]) {
+                        const msgIndex = chatMessages[chatId].findIndex(m => m.id === payload.new.id);
+                        if (msgIndex !== -1) {
+                            const userMap = new Map(allUsers.map(u => [u.id, u.username]));
+                            chatMessages[chatId][msgIndex] = {
+                                ...payload.new,
+                                sender: userMap.get(payload.new.sender) || 'Пользователь',
+                                sender_id: payload.new.sender, // Store original sender ID!
+                                time: payload.new.created_at,
+                                type: 'text'
+                            };
+                            renderMessages(); // Re-render to update checkmarks
+                        }
+                    }
+                });
+                
             await realtimeChannel.subscribe();
 
             // Initialize presence channel if logged in
@@ -1264,17 +1318,18 @@ document.addEventListener('DOMContentLoaded', () => {
             // Load general messages (chat_id = 'general')
             const { data: generalData, error: generalError } = await supabaseClient
                 .from('messages')
-                .select('id, text, sender, created_at')
+                .select('id, text, sender, created_at, is_read')
                 .eq('chat_id', 'general')
                 .order('id', { ascending: true })
                 .limit(100);
             if (generalError) {
-                chatMessages.general = [{ id: 'err-0', text: 'Не удалось загрузить сообщения.', sender: 'Система', time: new Date().toISOString(), type: 'text' }];
+                chatMessages.general = [{ id: 'err-0', text: 'Не удалось загрузить сообщения.', sender: 'Система', sender_id: null, time: new Date().toISOString(), type: 'text' }];
             } else {
                 chatMessages.general = (generalData || []).map(m => ({ 
                     ...m, 
                     text: m.text, 
                     sender: userMap.get(m.sender) || 'Пользователь', 
+                    sender_id: m.sender, // Store original sender ID!
                     time: m.created_at, 
                     type: 'text' 
                 }));
@@ -1287,7 +1342,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!chatMessages[roomId]) chatMessages[roomId] = [];
                 
                 const { data: personalData, error: personalError } = await supabaseClient.from('messages')
-                    .select('id, text, sender, created_at, chat_id')
+                    .select('id, text, sender, created_at, chat_id, is_read')
                     .eq('chat_id', roomId)
                     .order('id', { ascending: true });
                 
@@ -1296,6 +1351,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ...m, 
                         text: m.text, 
                         sender: userMap.get(m.sender) || 'Пользователь', 
+                        sender_id: m.sender, // Store original sender ID!
                         time: m.created_at, 
                         type: 'text' 
                     }));
