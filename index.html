@@ -396,34 +396,39 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Helper to get unread count and last message text from chatMessages
         function getChatMetadata(chatId) {
-            const msgs = getMessages(chatId);
-            if (!msgs.length) return { unreadCount: 0, lastMessage: '' };
-            
-            // Count unread: messages NOT from current user, is_read is false
-            let unreadCount = 0;
-            msgs.forEach(m => {
-                if (m.sender_id && m.sender_id !== currentProfile?.id && !m.is_read) {
-                    unreadCount++;
+            try {
+                const msgs = getMessages(chatId);
+                if (!msgs || !msgs.length) return { unreadCount: 0, lastMessage: 'Нет сообщений' };
+                
+                // Count unread: messages NOT from current user, is_read is false
+                let unreadCount = 0;
+                msgs.forEach(m => {
+                    if (m && m.sender_id && m.sender_id !== currentProfile?.id && !m.is_read) {
+                        unreadCount++;
+                    }
+                });
+                
+                // Get last message (ignore system)
+                const lastUserMsg = msgs.filter(m => m.type !== 'system').pop() || msgs[msgs.length - 1];
+                let lastMessageText = 'Нет сообщений';
+                if (lastUserMsg) {
+                    if (lastUserMsg.text) {
+                        lastMessageText = lastUserMsg.text;
+                    } else if (lastUserMsg.type === 'image') {
+                        lastMessageText = '📷 Изображение';
+                    }
                 }
-            });
-            
-            // Get last message (ignore system)
-            const lastUserMsg = msgs.filter(m => m.type !== 'system').pop() || msgs[msgs.length - 1];
-            let lastMessageText = '';
-            if (lastUserMsg) {
-                if (lastUserMsg.text) {
-                    lastMessageText = lastUserMsg.text;
-                } else if (lastUserMsg.type === 'image') {
-                    lastMessageText = '📷 Изображение';
+                
+                // Truncate if needed
+                if (lastMessageText.length > 35) {
+                    lastMessageText = lastMessageText.slice(0, 35) + '…';
                 }
+                
+                return { unreadCount, lastMessageText };
+            } catch (e) {
+                console.warn('Failed to get chat metadata', e);
+                return { unreadCount: 0, lastMessage: 'Нет сообщений' };
             }
-            
-            // Truncate if needed
-            if (lastMessageText.length > 35) {
-                lastMessageText = lastMessageText.slice(0, 35) + '…';
-            }
-            
-            return { unreadCount, lastMessageText };
         }
 
         function getAllChats() { return [...BASE_CHATS, ...customGroups]; }
@@ -997,25 +1002,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 
-                // Mark all messages from this user as read
+                // Mark all messages from this user as read - wrapped in try/catch
                 if (chat.userId) {
-                    await supabaseClient
-                        .from('messages')
-                        .update({ is_read: true })
-                        .eq('chat_id', activeChatId)
-                        .eq('sender', chat.userId)
-                        .eq('is_read', false);
+                    try {
+                        await supabaseClient
+                            .from('messages')
+                            .update({ is_read: true })
+                            .eq('chat_id', activeChatId)
+                            .eq('sender', chat.userId)
+                            .eq('is_read', false);
+                    } catch (e) {
+                        console.log('Failed to mark messages as read (column not available)', e);
+                    }
                 } else if (chat.id.startsWith('room_')) {
                     const parts = chat.id.split('_');
                     const userIdsInRoom = [parts[1], parts[2]];
                     const otherUserId = userIdsInRoom.find(id => id !== currentProfile?.id);
                     if (otherUserId) {
-                        await supabaseClient
-                            .from('messages')
-                            .update({ is_read: true })
-                            .eq('chat_id', activeChatId)
-                            .eq('sender', otherUserId)
-                            .eq('is_read', false);
+                        try {
+                            await supabaseClient
+                                .from('messages')
+                                .update({ is_read: true })
+                                .eq('chat_id', activeChatId)
+                                .eq('sender', otherUserId)
+                                .eq('is_read', false);
+                        } catch (e) {
+                            console.log('Failed to mark messages as read (column not available)', e);
+                        }
                     }
                 }
             }
@@ -1286,10 +1299,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     // If this message is in the currently active chat and NOT from us, mark it as read immediately
                     if (payload.new.chat_id === activeChatId && payload.new.sender !== currentProfile?.id) {
-                        await supabaseClient
-                            .from('messages')
-                            .update({ is_read: true })
-                            .eq('id', payload.new.id);
+                        try {
+                            await supabaseClient
+                                .from('messages')
+                                .update({ is_read: true })
+                                .eq('id', payload.new.id);
+                        } catch (e) {
+                            console.log('Failed to mark single message as read (column not available)', e);
+                        }
                     }
                     
                     // Show notification if needed
@@ -1359,7 +1376,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Load general messages (chat_id = 'general')
             const { data: generalData, error: generalError } = await supabaseClient
                 .from('messages')
-                .select('id, text, sender, created_at, is_read')
+                .select('id, text, sender, created_at, chat_id')
                 .eq('chat_id', 'general')
                 .order('id', { ascending: true })
                 .limit(100);
@@ -1372,7 +1389,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     sender: userMap.get(m.sender) || 'Пользователь', 
                     sender_id: m.sender, // Store original sender ID!
                     time: m.created_at, 
-                    type: 'text' 
+                    type: 'text',
+                    is_read: false // Default to unread since we don't have is_read column
                 }));
             }
             
@@ -1383,7 +1401,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!chatMessages[roomId]) chatMessages[roomId] = [];
                 
                 const { data: personalData, error: personalError } = await supabaseClient.from('messages')
-                    .select('id, text, sender, created_at, chat_id, is_read')
+                    .select('id, text, sender, created_at, chat_id')
                     .eq('chat_id', roomId)
                     .order('id', { ascending: true });
                 
@@ -1394,7 +1412,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         sender: userMap.get(m.sender) || 'Пользователь', 
                         sender_id: m.sender, // Store original sender ID!
                         time: m.created_at, 
-                        type: 'text' 
+                        type: 'text',
+                        is_read: false // Default to unread since we don't have is_read column
                     }));
                 }
             }
