@@ -815,11 +815,10 @@ document.addEventListener('DOMContentLoaded', () => {
             list.innerHTML = chats.map(chat => {
                 const isActive = chat.id === activeChatId;
                 
-                // Get metadata: unread count and last message text
+                // Get metadata: unread count and last message text (unread is disabled for now)
                 const meta = getChatMetadata(chat.id);
-                const unreadBadge = meta.unreadCount > 0 
-                    ? `<span class="min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full bg-blue-500 text-white text-[10px] font-bold shrink-0">${meta.unreadCount}</span>` 
-                    : '';
+                // Unread badge disabled until we confirm correct DB column
+                const unreadBadge = '';
                     
                 let badge = '';
                 if (chat.id === 'general') {
@@ -1002,35 +1001,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 
-                // Mark all messages from this user as read - wrapped in try/catch
-                if (chat.userId) {
-                    try {
-                        await supabaseClient
-                            .from('messages')
-                            .update({ is_read: true })
-                            .eq('chat_id', activeChatId)
-                            .eq('sender', chat.userId)
-                            .eq('is_read', false);
-                    } catch (e) {
-                        console.log('Failed to mark messages as read (column not available)', e);
-                    }
-                } else if (chat.id.startsWith('room_')) {
-                    const parts = chat.id.split('_');
-                    const userIdsInRoom = [parts[1], parts[2]];
-                    const otherUserId = userIdsInRoom.find(id => id !== currentProfile?.id);
-                    if (otherUserId) {
-                        try {
-                            await supabaseClient
-                                .from('messages')
-                                .update({ is_read: true })
-                                .eq('chat_id', activeChatId)
-                                .eq('sender', otherUserId)
-                                .eq('is_read', false);
-                        } catch (e) {
-                            console.log('Failed to mark messages as read (column not available)', e);
-                        }
-                    }
-                }
+                // Mark all messages from this user as read - DISABLED until we confirm correct column name
+                // if (chat.userId) {
+                //     try {
+                //         await supabaseClient
+                //             .from('messages')
+                //             .update({ is_read: true })
+                //             .eq('chat_id', activeChatId)
+                //             .eq('sender', chat.userId)
+                //             .eq('is_read', false);
+                //     } catch (e) {
+                //         console.log('Failed to mark messages as read (column not available)', e);
+                //     }
+                // } else if (chat.id.startsWith('room_')) {
+                //     const parts = chat.id.split('_');
+                //     const userIdsInRoom = [parts[1], parts[2]];
+                //     const otherUserId = userIdsInRoom.find(id => id !== currentProfile?.id);
+                //     if (otherUserId) {
+                //         try {
+                //             await supabaseClient
+                //                 .from('messages')
+                //                 .update({ is_read: true })
+                //                 .eq('chat_id', activeChatId)
+                //                 .eq('sender', otherUserId)
+                //                 .eq('is_read', false);
+                //         } catch (e) {
+                //             console.log('Failed to mark messages as read (column not available)', e);
+                //         }
+                //     }
+                // }
             }
 
             const showMembers = chat.id === 'general' && chat.functional;
@@ -1297,17 +1296,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         addMessage(payload.new.chat_id, newMsg);
                     }
                     
-                    // If this message is in the currently active chat and NOT from us, mark it as read immediately
-                    if (payload.new.chat_id === activeChatId && payload.new.sender !== currentProfile?.id) {
-                        try {
-                            await supabaseClient
-                                .from('messages')
-                                .update({ is_read: true })
-                                .eq('id', payload.new.id);
-                        } catch (e) {
-                            console.log('Failed to mark single message as read (column not available)', e);
-                        }
-                    }
+                    // If this message is in the currently active chat and NOT from us, mark it as read immediately - DISABLED
+                    // if (payload.new.chat_id === activeChatId && payload.new.sender !== currentProfile?.id) {
+                    //     try {
+                    //         await supabaseClient
+                    //             .from('messages')
+                    //             .update({ is_read: true })
+                    //             .eq('id', payload.new.id);
+                    //     } catch (e) {
+                    //         console.log('Failed to mark single message as read (column not available)', e);
+                    //     }
+                    // }
                     
                     // Show notification if needed
                     if (
