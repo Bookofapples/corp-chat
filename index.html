@@ -393,43 +393,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const d = date ? new Date(date) : new Date();
             return isNaN(d.getTime()) ? '' : d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
         }
-        
-        // Helper to get unread count and last message text from chatMessages
-        function getChatMetadata(chatId) {
-            try {
-                const msgs = getMessages(chatId);
-                if (!msgs || !msgs.length) return { unreadCount: 0, lastMessage: 'Нет сообщений' };
-                
-                // Count unread: messages NOT from current user, is_read is false
-                let unreadCount = 0;
-                msgs.forEach(m => {
-                    if (m && m.sender_id && m.sender_id !== currentProfile?.id && !m.is_read) {
-                        unreadCount++;
-                    }
-                });
-                
-                // Get last message (ignore system)
-                const lastUserMsg = msgs.filter(m => m.type !== 'system').pop() || msgs[msgs.length - 1];
-                let lastMessageText = 'Нет сообщений';
-                if (lastUserMsg) {
-                    if (lastUserMsg.text) {
-                        lastMessageText = lastUserMsg.text;
-                    } else if (lastUserMsg.type === 'image') {
-                        lastMessageText = '📷 Изображение';
-                    }
-                }
-                
-                // Truncate if needed
-                if (lastMessageText.length > 35) {
-                    lastMessageText = lastMessageText.slice(0, 35) + '…';
-                }
-                
-                return { unreadCount, lastMessageText };
-            } catch (e) {
-                console.warn('Failed to get chat metadata', e);
-                return { unreadCount: 0, lastMessage: 'Нет сообщений' };
-            }
-        }
 
         function getAllChats() { return [...BASE_CHATS, ...customGroups]; }
 
@@ -814,12 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             list.innerHTML = chats.map(chat => {
                 const isActive = chat.id === activeChatId;
-                
-                // Get metadata: unread count and last message text (unread is disabled for now)
-                const meta = getChatMetadata(chat.id);
-                // Unread badge disabled until we confirm correct DB column
-                const unreadBadge = '';
-                    
+                const unread = chat.unread > 0 ? `<span class="min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold shrink-0">${chat.unread}</span>` : '';
                 let badge = '';
                 if (chat.id === 'general') {
                     badge = `<span id="status-badge" class="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0 ${isProdMode ? (theme === 'dark' ? 'bg-emerald-900/50 text-emerald-400' : 'bg-emerald-100 text-emerald-700') : (theme === 'dark' ? 'bg-amber-900/50 text-amber-400' : 'bg-amber-100 text-amber-700')}">${isProdMode ? 'Realtime' : 'Демо'}</span>`;
@@ -843,11 +801,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? `<div id="${statusDotId}" class="status-dot absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></div>` 
                     : `<div id="${statusDotId}" class="status-dot absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-slate-400 border-2 border-white dark:border-slate-800 rounded-full"></div>`;
                 
-                // Determine subtitle: last message text if exists, otherwise position + status
+                // Determine subtitle: for personal chats, show position/role + online status; for general show preview
                 let subtitleText = '';
-                if (meta.lastMessage) {
-                    subtitleText = meta.lastMessage;
-                } else if (chat.type === 'personal') {
+                if (chat.type === 'personal') {
                     const baseSubtitle = chat.subtitle || '';
                     const statusText = isOnline ? 'В сети' : 'Оффлайн';
                     if (baseSubtitle) {
@@ -856,7 +812,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         subtitleText = statusText;
                     }
                 } else {
-                    // For group chats (general), use preview text
+                    // For group chats, use preview text
                     subtitleText = chat.functional ? getPreviewText(chat.id) : chat.subtitle;
                 }
                 
@@ -877,7 +833,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="flex-1 min-w-0">
                             <div class="flex justify-between items-center gap-2">
                                 <h4 class="text-sm font-semibold truncate ${c.textPrimary}">${escapeHtml(chat.name)}</h4>
-                                <div class="flex items-center gap-1 shrink-0">${badge}${unreadBadge}</div>
+                                <div class="flex items-center gap-1 shrink-0">${badge}${unread}</div>
                             </div>
                             <p class="text-xs truncate mt-0.5 ${c.textMuted}">${escapeHtml(subtitleText)}</p>
                         </div>
@@ -913,13 +869,11 @@ document.addEventListener('DOMContentLoaded', () => {
             avatarUrl = localStorage.getItem('chat_avatar') || '';
             theme = localStorage.getItem('chat_theme') || 'light';
             loadCustomData();
-            // Restore last active chat
-            const lastChatId = localStorage.getItem('chat_active_chat_id') || 'general';
             if (!chatMembers.general) initMembersForChat('general');
             updateUserDisplay();
             initMessenger();
             applyTheme(theme);
-            selectChat(lastChatId, false);
+            selectChat('general', false);
             if (isMobile()) showSidebarOnly();
         }
 
@@ -931,10 +885,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (chatWindow) chatWindow.classList.add('is-mobile-hidden');
         }
 
-        async function selectChat(chatId, fromUserClick) {
+        function selectChat(chatId, fromUserClick) {
             activeChatId = chatId;
-            // Save active chat to localStorage
-            localStorage.setItem('chat_active_chat_id', activeChatId);
             const chat = getChat(chatId);
             chatOpenOnMobile = true;
             clearUnread(chatId);
@@ -1004,36 +956,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         chatHeaderIcon.innerHTML = `<span class="material-icons">${chat.icon}</span>`;
                     }
                 }
-                
-                // Mark all messages from this user as read - DISABLED until we confirm correct column name
-                // if (chat.userId) {
-                //     try {
-                //         await supabaseClient
-                //             .from('messages')
-                //             .update({ is_read: true })
-                //             .eq('chat_id', activeChatId)
-                //             .eq('sender', chat.userId)
-                //             .eq('is_read', false);
-                //     } catch (e) {
-                //         console.log('Failed to mark messages as read (column not available)', e);
-                //     }
-                // } else if (chat.id.startsWith('room_')) {
-                //     const parts = chat.id.split('_');
-                //     const userIdsInRoom = [parts[1], parts[2]];
-                //     const otherUserId = userIdsInRoom.find(id => id !== currentProfile?.id);
-                //     if (otherUserId) {
-                //         try {
-                //             await supabaseClient
-                //                 .from('messages')
-                //                 .update({ is_read: true })
-                //                 .eq('chat_id', activeChatId)
-                //                 .eq('sender', otherUserId)
-                //                 .eq('is_read', false);
-                //         } catch (e) {
-                //             console.log('Failed to mark messages as read (column not available)', e);
-                //         }
-                //     }
-                // }
             }
 
             const showMembers = chat.id === 'general' && chat.functional;
@@ -1059,15 +981,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (container) requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; });
         }
 
-        function renderChecks(msg) {
-            // Check all possible read status fields, default to single checkmark if none found
-            let isRead = false;
-            if (msg.is_read === true || msg.is_read === 1) isRead = true;
-            if (msg.read === true || msg.read === 1) isRead = true;
-            if (msg.readStatus === 2) isRead = true;
-            
-            if (isRead) return `<span class="text-[11px] text-sky-300 leading-none ml-0.5">✓✓</span>`;
-            return `<span class="text-[11px] text-white/50 leading-none ml-0.5">✓</span>`;
+        function renderChecks(status) {
+            if (status === 1) return `<span class="text-[11px] text-white/50 leading-none ml-0.5">✓</span>`;
+            if (status === 2) return `<span class="text-[11px] text-sky-300 leading-none ml-0.5">✓✓</span>`;
+            return '';
         }
 
         function renderMessageBody(msg) {
@@ -1105,7 +1022,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return `<div class="flex justify-center my-1" data-msg-id="${msg.id}">
                         <span class="text-[11px] px-3 py-1.5 rounded-full font-medium text-center max-w-[90%] ${sysClass}">${escapeHtml(msg.text)}</span></div>`;
                 }
-                const isMe = msg.sender_id === currentProfile?.id; // Check using sender ID, not name!
+                const isMe = msg.sender === currentUser;
                 const time = formatTime(msg.time || msg.created_at);
                 const bubbleClass = isMe ? 'msg-bubble-own bg-blue-600 text-white rounded-br-sm' : `msg-bubble-other rounded-bl-sm ${c.bubbleOther}`;
                 return `<div class="flex flex-col ${isMe ? 'items-end' : 'items-start'}" data-msg-id="${msg.id}">
@@ -1113,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="max-w-[85%] sm:max-w-[75%] px-3.5 py-2 rounded-2xl text-sm shadow-sm break-words ${bubbleClass}">
                         ${renderMessageBody(msg)}
                         <div class="flex items-end justify-end gap-0.5 mt-1 msg-meta text-[10px] leading-none select-none">
-                            <span>${time}</span>${isMe ? `<span class="read-status">${renderChecks(msg)}</span>` : ''}
+                            <span>${time}</span>${isMe ? `<span class="read-status">${renderChecks(msg.readStatus)}</span>` : ''}
                         </div></div></div>`;
             }).join('');
 
@@ -1287,16 +1204,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Initialize messages channel
             realtimeChannel = supabaseClient.channel('public:messages');
-            
-            // Handle INSERT events (new messages)
             realtimeChannel
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
                     const userMap = new Map(allUsers.map(u => [u.id, u.username]));
                     const newMsg = { 
                         ...payload.new, 
                         text: payload.new.text, 
                         sender: userMap.get(payload.new.sender) || 'Пользователь', 
-                        sender_id: payload.new.sender, // Store original sender ID!
                         time: payload.new.created_at, 
                         type: 'text' 
                     };
@@ -1305,18 +1219,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (payload.new.chat_id) {
                         addMessage(payload.new.chat_id, newMsg);
                     }
-                    
-                    // If this message is in the currently active chat and NOT from us, mark it as read immediately - DISABLED
-                    // if (payload.new.chat_id === activeChatId && payload.new.sender !== currentProfile?.id) {
-                    //     try {
-                    //         await supabaseClient
-                    //             .from('messages')
-                    //             .update({ is_read: true })
-                    //             .eq('id', payload.new.id);
-                    //     } catch (e) {
-                    //         console.log('Failed to mark single message as read (column not available)', e);
-                    //     }
-                    // }
                     
                     // Show notification if needed
                     if (
@@ -1331,29 +1233,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     }
                 });
-                
-            // Handle UPDATE events (message status changes, like is_read)
-            realtimeChannel
-                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
-                    // Find the message in chatMessages and update it
-                    const chatId = payload.new.chat_id;
-                    if (chatMessages[chatId]) {
-                        const msgIndex = chatMessages[chatId].findIndex(m => m.id === payload.new.id);
-                        if (msgIndex !== -1) {
-                            const userMap = new Map(allUsers.map(u => [u.id, u.username]));
-                            chatMessages[chatId][msgIndex] = {
-                                ...payload.new,
-                                sender: userMap.get(payload.new.sender) || 'Пользователь',
-                                sender_id: payload.new.sender, // Store original sender ID!
-                                time: payload.new.created_at,
-                                type: 'text'
-                            };
-                            renderMessages(); // Re-render to update checkmarks
-                            renderChatList(); // Re-render to update unread badge and last message
-                        }
-                    }
-                });
-                
             await realtimeChannel.subscribe();
 
             // Initialize presence channel if logged in
@@ -1385,21 +1264,19 @@ document.addEventListener('DOMContentLoaded', () => {
             // Load general messages (chat_id = 'general')
             const { data: generalData, error: generalError } = await supabaseClient
                 .from('messages')
-                .select('id, text, sender, created_at, chat_id, is_read, read, read_status')
+                .select('id, text, sender, created_at')
                 .eq('chat_id', 'general')
                 .order('id', { ascending: true })
                 .limit(100);
             if (generalError) {
-                chatMessages.general = [{ id: 'err-0', text: 'Не удалось загрузить сообщения.', sender: 'Система', sender_id: null, time: new Date().toISOString(), type: 'text' }];
+                chatMessages.general = [{ id: 'err-0', text: 'Не удалось загрузить сообщения.', sender: 'Система', time: new Date().toISOString(), type: 'text' }];
             } else {
                 chatMessages.general = (generalData || []).map(m => ({ 
                     ...m, 
                     text: m.text, 
                     sender: userMap.get(m.sender) || 'Пользователь', 
-                    sender_id: m.sender, // Store original sender ID!
                     time: m.created_at, 
-                    type: 'text',
-                    is_read: false // Default to unread since we don't have is_read column
+                    type: 'text' 
                 }));
             }
             
@@ -1419,10 +1296,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         ...m, 
                         text: m.text, 
                         sender: userMap.get(m.sender) || 'Пользователь', 
-                        sender_id: m.sender, // Store original sender ID!
                         time: m.created_at, 
-                        type: 'text',
-                        is_read: false // Default to unread since we don't have is_read column
+                        type: 'text' 
                     }));
                 }
             }
@@ -1975,13 +1850,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (chatContainer) chatContainer.classList.add('visible');
             theme = localStorage.getItem('chat_theme') || 'light';
             loadCustomData();
-            // Restore last active chat
-            const lastChatId = localStorage.getItem('chat_active_chat_id') || 'general';
             if (!chatMembers.general) initMembersForChat('general');
             updateUserDisplay();
             initMessenger();
             applyTheme(theme);
-            selectChat(lastChatId, false);
+            selectChat('general', false);
             if (isMobile()) showSidebarOnly();
         }
 
